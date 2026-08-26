@@ -1,0 +1,6 @@
+{
+  "name": "SAATHI — Victim Wellbeing & Distress Monitoring System",
+  "description": "AI-Powered Dynamic Mental Health Monitoring and Distress Prediction System for Victims of Atrocities (Ministry of Social Justice & Empowerment)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
