@@ -46,6 +46,12 @@ export const LoginPage: React.FC = () => {
       desc: 'Aggregated intelligence, policy insights & national trend analytics',
       sampleId: 'director.ramachandran@mosje.gov.in',
     },
+    {
+      role: 'Victim / Citizen',
+      title: 'Victim / Citizen (Anjali)',
+      desc: 'Confidential care portal, SOS threat alarm, DBT tracker & vernacular check-ins',
+      sampleId: 'anjali.gaikwad@citizen.nic.in',
+    },
   ];
 
   const handleRoleSelect = (r: UserRole, sampleId: string) => {
@@ -57,7 +63,11 @@ export const LoginPage: React.FC = () => {
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
     login(selectedRole);
-    navigate('/dashboard');
+    if (selectedRole === 'Victim / Citizen') {
+      navigate('/victim');
+    } else {
+      navigate('/dashboard');
+    }
   };
 
   return (

@@ -23,7 +23,8 @@ export type UserRole =
   | 'District Officer'
   | 'Counsellor'
   | 'State Administrator'
-  | 'National Administrator';
+  | 'National Administrator'
+  | 'Victim / Citizen';
 
 export type CommunicationChannel =
   | 'Chatbot'
