@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   PlayCircle,
   ExternalLink,
+  Heart,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { RiskBadge } from '../common/RiskBadge';
@@ -25,6 +26,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
   const {
     userName,
     userRole,
+    setUserRole,
     userDistrict,
     unreadAlertsCount,
     alerts,
@@ -48,6 +50,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
     { label: '7. State Intelligence', path: '/state' },
     { label: '8. National Intelligence', path: '/national' },
     { label: '9. Privacy & Security', path: '/security' },
+    { label: '10. Victim Care Portal (Citizen App)', path: '/victim' },
   ];
 
   return (
@@ -104,6 +107,32 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
 
         {/* Right Action Icons & User Profile */}
         <div className="flex items-center gap-2 lg:gap-3">
+          {/* Quick Toggle for Victim Care Portal vs Officer Dashboard */}
+          {location.pathname === '/victim' ? (
+            <button
+              onClick={() => {
+                setUserRole('District Officer');
+                navigate('/dashboard');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Officer Dashboard</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setUserRole('Victim / Citizen');
+                navigate('/victim');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition-all shadow-xs cursor-pointer"
+              title="Open the Victim / Citizen Care Portal view"
+            >
+              <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600/20" />
+              <span>Victim Portal</span>
+            </button>
+          )}
+
           {/* Check-in Simulator Quick Action */}
           <button
             onClick={() => setShowCheckInSimulator(true)}

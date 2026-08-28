@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   FolderOpen,
@@ -19,6 +19,7 @@ import {
   LogOut,
   ChevronRight,
   ShieldCheck,
+  Heart,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -29,9 +30,11 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   const { userRole, setUserRole, unreadAlertsCount, logout, setShowCheckInSimulator } = useApp();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
     { label: 'Overview Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { label: 'Victim Care Portal', path: '/victim', icon: Heart, badge: 'Citizen App', isHighlighted: true },
     { label: 'Case Monitoring', path: '/cases', icon: FolderOpen },
     { label: 'Demo Case Profile', path: '/cases/ATC-2026-10482', icon: UserCheck, badge: 'High Risk' },
     { label: 'Distress Analytics', path: '/analytics', icon: LineChart },
@@ -88,13 +91,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
         </label>
         <select
           value={userRole}
-          onChange={(e) => setUserRole(e.target.value as any)}
+          onChange={(e) => {
+            const role = e.target.value as any;
+            setUserRole(role);
+            if (role === 'Victim / Citizen') {
+              navigate('/victim');
+            } else if (location.pathname === '/victim') {
+              navigate('/dashboard');
+            }
+          }}
           className="w-full text-xs font-semibold py-1.5 px-2.5 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 hover:border-slate-600 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 cursor-pointer"
         >
           <option value="District Officer">District Officer (Pune)</option>
           <option value="Counsellor">Clinical Counsellor (Trauma)</option>
           <option value="State Administrator">State Admin (Maharashtra)</option>
           <option value="National Administrator">National Admin (MoSJE HQ)</option>
+          <option value="Victim / Citizen">Victim / Citizen (Anjali Gaikwad)</option>
         </select>
       </div>
 

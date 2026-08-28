@@ -51,6 +51,7 @@ interface AppContextType {
   resolveAlert: (alertId: string) => void;
   addInteractionToCheckIn: (caseId: string, interaction: Omit<CaseInteraction, 'id'>) => void;
   assignCounsellorToCase: (caseId: string, counsellorName: string, phone?: string) => void;
+  triggerVictimSOS: (caseId: string, threatDetails: string, location?: string) => void;
 
   // Filter state
   filters: FilterState;
@@ -122,6 +123,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else if (role === 'State Administrator') {
       setUserName('Admin V. K. Sharma, IAS (Joint Secretary, Dept of Social Justice)');
       setUserDistrict('Maharashtra State');
+    } else if (role === 'Victim / Citizen') {
+      setUserName('Anjali S. Gaikwad (Case ID: ATC-2026-10482)');
+      setUserDistrict('Pune Rural');
     } else {
       setUserName('Dr. K. Ramachandran (National Director, MoSJE)');
       setUserDistrict('New Delhi (National)');
@@ -291,6 +295,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const triggerVictimSOS = (caseId: string, threatDetails: string, location?: string) => {
+    const targetCase = cases.find((c) => c.id === caseId) || cases[0];
+    const newAlert: RiskAlert = {
+      id: `alert-sos-${Date.now()}`,
+      caseId: targetCase.id,
+      victimAnonymousId: targetCase.victimAnonymousId,
+      district: targetCase.district,
+      riskLevel: 'CRITICAL',
+      reason: `EMERGENCY SOS: ${threatDetails}`,
+      detectedAt: 'Just now',
+      status: 'Unread',
+      primaryFactor: 'Direct Citizen Emergency Dispatch / Imminent Threat',
+      recommendations: [
+        'Dispatch Local PCR Van & Special Cell Unit immediately',
+        'Deploy Witness Protection Escort',
+        'Initiate Emergency Safe-House Relocation Protocol',
+      ],
+      distressScore: 98,
+      previousScore: targetCase.distressScore,
+      assignedCounsellor: targetCase.assignedCounsellor,
+    };
+
+    setAlerts((prev) => [newAlert, ...prev]);
+
+    setCases((prev) =>
+      prev.map((c) => {
+        if (c.id !== targetCase.id) return c;
+        return {
+          ...c,
+          distressScore: 98,
+          riskLevel: 'CRITICAL',
+          priority: 'P1',
+          lastInteractionTime: 'Just now (SOS Triggered)',
+          alertTimeline: [
+            {
+              id: `atl-${Date.now()}`,
+              time: 'Just now',
+              date: 'Today',
+              title: 'EMERGENCY SOS Triggered from Victim Portal',
+              description: `${threatDetails} ${location ? `[Location: ${location}]` : ''}`,
+              severity: 'critical',
+            },
+            ...c.alertTimeline,
+          ],
+        };
+      })
+    );
+  };
+
   const resetFilters = () => {
     setFilters(defaultFilters);
   };
@@ -370,6 +423,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resolveAlert,
         addInteractionToCheckIn,
         assignCounsellorToCase,
+        triggerVictimSOS,
         filters,
         setFilters,
         resetFilters,

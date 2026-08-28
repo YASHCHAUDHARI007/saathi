@@ -16,6 +16,7 @@ import { NationalDashboardPage } from './pages/NationalDashboardPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { PrivacySecurityPage } from './pages/PrivacySecurityPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { VictimDashboardPage } from './pages/VictimDashboardPage';
 
 // Protected Route Guard
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -57,6 +58,9 @@ export function App() {
             <Route path="reports" element={<ReportsPage />} />
             <Route path="security" element={<PrivacySecurityPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="victim" element={<VictimDashboardPage />} />
+            <Route path="victim-portal" element={<VictimDashboardPage />} />
+            <Route path="victim-dashboard" element={<VictimDashboardPage />} />
           </Route>
 
           {/* Catch-all fallback */}
