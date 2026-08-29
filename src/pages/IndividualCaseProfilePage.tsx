@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   User,
@@ -52,6 +52,7 @@ const CASE_STAGE_SEQUENCE: readonly CaseStage[] = [
 export const IndividualCaseProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     getCaseById,
     loadCaseById,
@@ -112,6 +113,9 @@ export const IndividualCaseProfilePage: React.FC = () => {
   }
 
   const c = caseItem;
+  const creationNotice = typeof (location.state as { notice?: unknown } | null)?.notice === 'string'
+    ? (location.state as { notice: string }).notice
+    : '';
   const sevenDayChange = c.distressScore - c.previousDistressScore;
   const trajectoryHighlights = c.longitudinalTrajectory.slice(-3);
   const latestInteraction = c.interactions[0];
@@ -123,7 +127,7 @@ export const IndividualCaseProfilePage: React.FC = () => {
     : undefined;
   const assignableCounsellors = staffDirectory.filter((staff) =>
     staff.role === 'COUNSELLOR'
-    && (isDemoMode || staff.district_name === c.district)
+    && staff.district_name === c.district
   );
 
   const handleCounsellorAssignment = async (): Promise<void> => {
@@ -171,6 +175,11 @@ export const IndividualCaseProfilePage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {creationNotice && (
+        <div role="status" aria-live="polite" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">
+          {creationNotice}
+        </div>
+      )}
       {/* Top Breadcrumb & Actions Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
         <div className="flex items-center gap-3">
@@ -273,6 +282,27 @@ export const IndividualCaseProfilePage: React.FC = () => {
               {c.monitoringStatus}
             </span>
             <span className="text-[10px] text-slate-500 block mt-0.5">Last Pulse: {c.lastInteractionTime}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+        <div className="mb-3 flex items-center gap-2">
+          <FileText className="h-4 w-4 text-indigo-600" />
+          <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-800">Legal intake details</h2>
+        </div>
+        <div className="grid grid-cols-1 gap-4 text-xs sm:grid-cols-3">
+          <div>
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">FIR number</span>
+            <span className="mt-1 block font-bold text-slate-900">{c.firNumber || 'Not recorded'}</span>
+          </div>
+          <div>
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Police station</span>
+            <span className="mt-1 block font-bold text-slate-900">{c.policeStation || 'Not recorded'}</span>
+          </div>
+          <div>
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Special court</span>
+            <span className="mt-1 block font-bold text-slate-900">{c.specialCourt || 'Not recorded'}</span>
           </div>
         </div>
       </div>
@@ -798,7 +828,15 @@ export const IndividualCaseProfilePage: React.FC = () => {
         {(() => {
           const activeStageObj =
             c.milestones.find((m) => m.stage === (selectedTimelineStage || c.currentStage)) ||
-            c.milestones[1];
+            c.milestones[0];
+
+          if (!activeStageObj) {
+            return (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+                The case is currently at <strong>{c.currentStage}</strong>. No detailed lifecycle milestone records are available for this case yet.
+              </div>
+            );
+          }
 
           return (
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">

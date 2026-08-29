@@ -153,8 +153,11 @@ export interface CaseItem {
   trendDirection: 'increasing' | 'stable' | 'decreasing';
   lastInteractionTime: string;
   assignedCounsellor: string;
+  assignedCounsellorId?: string;
   counsellorPhone?: string;
   firNumber?: string;
+  policeStation?: string;
+  specialCourt?: string;
   priority: PriorityLevel;
   monitoringStatus: 'Active' | 'Elevated' | 'Under Review' | 'Dormant';
   

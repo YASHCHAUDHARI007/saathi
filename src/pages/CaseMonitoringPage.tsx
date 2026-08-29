@@ -32,11 +32,15 @@ export const CaseMonitoringPage: React.FC = () => {
     setShowCheckInSimulator,
     isDemoMode,
     recordTotals,
+    userRole,
   } = useApp();
 
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [sortBy, setSortBy] = useState<'distress' | 'recent' | 'risk'>('distress');
+  const canCreateCase = userRole === 'District Officer'
+    || userRole === 'State Administrator'
+    || userRole === 'National Administrator';
 
   const districts = ['All', ...Array.from(new Set(cases.map((item) => item.district).filter(Boolean))).sort()];
   const stages: ('All' | CaseStage)[] = [
@@ -90,6 +94,16 @@ export const CaseMonitoringPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {canCreateCase && (
+            <button
+              type="button"
+              onClick={() => navigate('/cases/new')}
+              className="px-3.5 py-2 text-xs font-bold rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 border border-indigo-700 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" /> Create case
+            </button>
+          )}
+
           <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
             <button
               onClick={() => setViewMode('table')}

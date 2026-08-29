@@ -29,6 +29,11 @@ Configuration lives in `.env.example`:
 - Set both flags to `true` only for an isolated, synthetic local demonstration.
 - The two flags intentionally cannot be enabled independently.
 
+Authorized district officers, state administrators, and national administrators
+can open `/cases/new` from the case register. In connected mode the form posts
+to `POST /api/v1/cases/`; in isolated demo mode it creates an in-memory synthetic
+record only.
+
 ## Verification
 
 ```sh
@@ -48,7 +53,8 @@ commands require automated tests before production release.
   authentication to a same-origin BFF/HttpOnly-cookie design with CSRF controls.
 - Collection screens currently present a loaded API page plus server totals;
   server-driven pagination/search/filter controls are still required.
-- Additional case creation/editing, bulk operations, and full audit review need
-  first-class UI workflows and behavioral coverage.
+- General case editing, bulk operations, and full audit review still need
+  first-class UI workflows and behavioral coverage. Case creation is connected,
+  but automated frontend test coverage remains a release gate.
 - Live check-in, reporting, model analytics, and external integrations remain
   disabled until their backend contracts and assurance evidence exist.
