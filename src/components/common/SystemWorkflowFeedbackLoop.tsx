@@ -36,15 +36,15 @@ export const SystemWorkflowFeedbackLoop: React.FC<{ activeStepIndex?: number; cl
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <h3 className="text-sm font-bold uppercase tracking-wider text-indigo-300">
-              Continuous Wellbeing Monitoring & Closed-Loop Intervention Architecture
+              Proposed Wellbeing Monitoring & Intervention Architecture
             </h3>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            PS-26094: End-to-end flow from multi-modal signals to explainable early escalation alerts and verified human outcome tracking.
+            Conceptual PS-26094 workflow. Deployment, model validation, and outcome verification remain pending.
           </p>
         </div>
         <span className="hidden sm:inline-flex text-xs font-semibold px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-          MoSJE System Flow
+          Prototype workflow
         </span>
       </div>
 

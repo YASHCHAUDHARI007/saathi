@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ShieldCheck,
@@ -14,12 +14,13 @@ import { useApp } from '../context/AppContext';
 import { UserRole } from '../types';
 
 export const LoginPage: React.FC = () => {
-  const { login, userRole, setUserRole } = useApp();
+  const { login, demoLogin, userRole, isDemoMode, isAuthLoading, isAuthenticated } = useApp();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState('officer.patil@pune.gov.in');
-  const [password, setPassword] = useState('••••••••••••');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>('District Officer');
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   const roles: { role: UserRole; title: string; desc: string; sampleId: string }[] = [
     {
@@ -37,7 +38,7 @@ export const LoginPage: React.FC = () => {
     {
       role: 'State Administrator',
       title: 'State Administrator',
-      desc: 'Cross-district oversight, SLA compliance & welfare scheme allocation',
+      desc: 'Cross-district oversight, response review & welfare planning',
       sampleId: 'admin.sharma@maharashtra.gov.in',
     },
     {
@@ -54,25 +55,36 @@ export const LoginPage: React.FC = () => {
     },
   ];
 
-  const handleRoleSelect = (r: UserRole, sampleId: string) => {
+  useEffect(() => {
+    if (isAuthenticated) navigate(userRole === 'Victim / Citizen' ? '/victim' : '/dashboard', { replace: true });
+  }, [isAuthenticated, navigate, userRole]);
+
+  const handleRoleSelect = (r: UserRole) => {
     setSelectedRole(r);
-    setUserRole(r);
-    setEmail(sampleId);
   };
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(selectedRole);
-    if (selectedRole === 'Victim / Citizen') {
-      navigate('/victim');
-    } else {
-      navigate('/dashboard');
+    setLoginError(null);
+    try {
+      await login(username, password);
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : 'Sign in failed. Please try again.');
+    }
+  };
+
+  const handleDemoSignIn = async () => {
+    setLoginError(null);
+    try {
+      await demoLogin(selectedRole);
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : 'Demo sign in failed.');
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
-      {/* Top Government Emblem Banner */}
+      {/* Prototype identity banner */}
       <div className="bg-slate-950/80 border-b border-slate-800 px-6 py-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -81,17 +93,17 @@ export const LoginPage: React.FC = () => {
             </div>
             <div>
               <span className="text-xs font-bold tracking-wider text-slate-200 uppercase block">
-                Ministry of Social Justice and Empowerment
+                SAATHI Victim Wellbeing Prototype
               </span>
               <span className="text-[10px] text-slate-400">
-                Department of Social Justice and Empowerment • Government of India
+                Demonstration project • Not an official government deployment
               </span>
             </div>
           </div>
 
           <div className="hidden sm:flex items-center gap-2 text-[11px] text-slate-400 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>NIC Cloud Authenticated • 256-Bit SSL</span>
+            <span>Deployment security review pending</span>
           </div>
         </div>
       </div>
@@ -149,15 +161,15 @@ export const LoginPage: React.FC = () => {
             <div className="bg-slate-950/90 rounded-2xl border border-slate-800 p-6 sm:p-8 shadow-2xl space-y-6">
               <div>
                 <h3 className="text-lg font-bold text-white tracking-tight">
-                  Official Portal Sign In
+                  SAATHI API Sign In
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Select a government role to test the interactive dashboard.
+                  Use credentials issued by the configured SAATHI backend.
                 </p>
               </div>
 
-              {/* Role Picker Selector */}
-              <div>
+              {/* Demo personas are compiled into explicitly enabled demo deployments only. */}
+              {isDemoMode && <div>
                 <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
                   Select Role Persona (Demo Mode)
                 </label>
@@ -165,10 +177,11 @@ export const LoginPage: React.FC = () => {
                   {roles.map((r) => {
                     const isSelected = selectedRole === r.role;
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={r.role}
-                        onClick={() => handleRoleSelect(r.role, r.sampleId)}
-                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                        onClick={() => handleRoleSelect(r.role)}
+                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all w-full ${
                           isSelected
                             ? 'bg-indigo-600/30 border-indigo-400 ring-2 ring-indigo-500/50'
                             : 'bg-slate-900 border-slate-800 hover:border-slate-700'
@@ -178,23 +191,39 @@ export const LoginPage: React.FC = () => {
                         <span className="block text-[10px] text-slate-400 line-clamp-1 mt-0.5">
                           {r.desc}
                         </span>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
-              </div>
+                <button
+                  type="button"
+                  onClick={() => void handleDemoSignIn()}
+                  disabled={isAuthLoading}
+                  className="mt-3 w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-900/40 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>{isAuthLoading ? 'Starting demo…' : `Open demo as ${selectedRole}`}</span>
+                </button>
+              </div>}
+
+              {loginError && (
+                <div role="alert" className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-xs text-rose-200">
+                  {loginError}
+                </div>
+              )}
 
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Official ID / Government Email
+                    Username
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      autoComplete="username"
                       className="w-full pl-9 pr-3 py-2 text-xs rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                       required
                     />
@@ -211,6 +240,7 @@ export const LoginPage: React.FC = () => {
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="current-password"
                       className="w-full pl-9 pr-3 py-2 text-xs rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                       required
                     />
@@ -218,21 +248,22 @@ export const LoginPage: React.FC = () => {
                 </div>
 
                 <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-300 text-center font-medium">
-                  Authorized Government Personnel Only (Demo Active)
+                  Credentials are sent only to the configured SAATHI API endpoint.
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-900/40 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  disabled={isAuthLoading}
+                  className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-900/40 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <span>Sign In as {selectedRole}</span>
+                  <span>{isAuthLoading ? 'Signing in…' : 'Sign In'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
 
               <div className="pt-2 border-t border-slate-800 text-center">
                 <p className="text-[10px] text-slate-500">
-                  Protected under the Information Technology Act & DPDP Act 2023. Unauthorized access is punishable by law.
+                  Prototype notice: production privacy, security, and statutory compliance require independent review before deployment.
                 </p>
               </div>
             </div>
@@ -242,7 +273,7 @@ export const LoginPage: React.FC = () => {
 
       {/* Footer */}
       <div className="bg-slate-950 border-t border-slate-800/80 px-6 py-3 text-center text-xs text-slate-500">
-        SAATHI Atrocity Victim Wellbeing Platform • Smart India Hackathon Prototype 2026 • Ministry of Social Justice and Empowerment
+        SAATHI Atrocity Victim Wellbeing Platform • Prototype environment • Not an emergency service
       </div>
     </div>
   );

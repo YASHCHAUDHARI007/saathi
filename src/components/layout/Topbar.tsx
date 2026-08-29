@@ -33,6 +33,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
     filters,
     setFilters,
     setShowCheckInSimulator,
+    isDemoMode,
   } = useApp();
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -74,7 +75,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
               </h2>
               <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live Monitoring Active
+                API session active
               </span>
             </div>
             <p className="text-xs text-slate-500 hidden sm:block">
@@ -108,7 +109,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
         {/* Right Action Icons & User Profile */}
         <div className="flex items-center gap-2 lg:gap-3">
           {/* Quick Toggle for Victim Care Portal vs Officer Dashboard */}
-          {location.pathname === '/victim' ? (
+          {isDemoMode && (location.pathname === '/victim' ? (
             <button
               onClick={() => {
                 setUserRole('District Officer');
@@ -131,17 +132,17 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
               <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600/20" />
               <span>Victim Portal</span>
             </button>
-          )}
+          ))}
 
           {/* Check-in Simulator Quick Action */}
-          <button
+          {isDemoMode && <button
             onClick={() => setShowCheckInSimulator(true)}
             className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200 transition-colors cursor-pointer"
             title="Simulate incoming victim check-in message"
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
             <span>Simulate Check-in</span>
-          </button>
+          </button>}
 
           {/* Notification Bell Dropdown */}
           <div className="relative">
@@ -232,7 +233,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
       </div>
 
       {/* Second tier: SIH Judge Presentation Quick-Jump Navigation Bar */}
-      <div className="bg-slate-900 text-white px-4 lg:px-6 py-2 flex items-center gap-2 overflow-x-auto custom-scrollbar text-xs">
+      {isDemoMode && <div className="bg-slate-900 text-white px-4 lg:px-6 py-2 flex items-center gap-2 overflow-x-auto custom-scrollbar text-xs">
         <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider shrink-0 flex items-center gap-1">
           <PlayCircle className="w-3.5 h-3.5 text-indigo-400" /> SIH Demo Flow:
         </span>
@@ -255,7 +256,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
             );
           })}
         </div>
-      </div>
+      </div>}
 
       {/* Help / System Guide Modal */}
       {showHelpModal && (

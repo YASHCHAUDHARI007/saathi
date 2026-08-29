@@ -16,12 +16,11 @@ interface DistressScoreGaugeProps {
 
 export const DistressScoreGauge: React.FC<DistressScoreGaugeProps> = ({
   score,
-  previousScore = 68,
-  baselineScore = 39,
-  sevenDayChange = 14,
-  thirtyDayChange = 27,
+  baselineScore = score,
+  sevenDayChange = 0,
+  thirtyDayChange,
   riskLevel,
-  trendText = '↑ 14 points over the last 7 days',
+  trendText = 'Trend detail is not available.',
   showComparisonIndicators = true,
 }) => {
   // Score color logic
@@ -107,8 +106,12 @@ export const DistressScoreGauge: React.FC<DistressScoreGaugeProps> = ({
           </div>
           <div className="bg-slate-50/80 rounded-lg p-2 border border-slate-100">
             <span className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider">30-Day Δ</span>
-            <span className="text-base font-bold text-rose-600 font-['Space_Grotesk']">
-              {thirtyDayChange >= 0 ? `+${thirtyDayChange}` : thirtyDayChange}
+            <span className="text-base font-bold text-slate-600 font-['Space_Grotesk']">
+              {thirtyDayChange === undefined
+                ? '—'
+                : thirtyDayChange >= 0
+                  ? `+${thirtyDayChange}`
+                  : thirtyDayChange}
             </span>
           </div>
           <div className="bg-slate-50/80 rounded-lg p-2 border border-slate-100">

@@ -11,14 +11,17 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { useApp } from '../context/AppContext';
 
 export const ReportsPage: React.FC = () => {
+  const { isDemoMode } = useApp();
   const [selectedReportType, setSelectedReportType] = useState('monthly_summary');
   const [selectedDistrict, setSelectedDistrict] = useState('All');
   const [isExporting, setIsExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
 
   const handleExport = (format: 'PDF' | 'CSV') => {
+    if (!isDemoMode) return;
     setIsExporting(true);
     setTimeout(() => {
       setIsExporting(false);
@@ -28,6 +31,18 @@ export const ReportsPage: React.FC = () => {
     }, 800);
   };
 
+  if (!isDemoMode) {
+    return (
+      <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-xs text-center space-y-3">
+        <FileText className="w-8 h-8 text-indigo-600 mx-auto" />
+        <h1 className="text-lg font-extrabold text-slate-900">Report exports are not configured</h1>
+        <p className="text-xs text-slate-600 max-w-xl mx-auto">
+          The frontend does not yet have a server-side report job, signed download, or integrity-verification API. No official dossier can be generated from this deployment.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -36,11 +51,11 @@ export const ReportsPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-indigo-600" />
             <h1 className="text-lg lg:text-xl font-extrabold text-slate-900 tracking-tight font-['Space_Grotesk']">
-              Official Government Reports & Policy Exports
+              Demonstration Report Templates
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1 font-medium">
-            Generate compliant audit dossiers for the District Magistrate, State Atrocity Vigilance Committee, and MoSJE HQ.
+            Preview illustrative layouts in explicit demo mode. These are not official, certified, or compliance-ready exports.
           </p>
         </div>
 
@@ -51,7 +66,7 @@ export const ReportsPage: React.FC = () => {
             className="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
-            <span>Export Official PDF Dossier</span>
+            <span>Run Demo PDF Export</span>
           </button>
           <button
             onClick={() => handleExport('CSV')}
@@ -68,7 +83,7 @@ export const ReportsPage: React.FC = () => {
         <div className="p-4 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-3 text-xs font-semibold shadow-xs animate-fadeIn">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
           <span>
-            Government Report exported successfully with cryptographic SHA-256 integrity seal. Download initiated.
+            Demo export animation complete. No official file or cryptographic integrity seal was generated.
           </span>
         </div>
       )}
@@ -119,26 +134,26 @@ export const ReportsPage: React.FC = () => {
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 space-y-1">
-            <span className="font-bold text-slate-900 block">Security Certification:</span>
+            <span className="font-bold text-slate-900 block">Prototype Notice:</span>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              All victim identities are pseudonymized in adherence to Section 15A of SC/ST (PoA) Act & DPDP Act 2023.
+              Placeholder content only. Privacy, redaction, retention, and statutory review are required before report generation is enabled.
             </p>
           </div>
         </div>
 
         {/* Right: Live Interactive Document Preview (8 cols) */}
         <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-8 shadow-xs space-y-6 font-sans">
-          {/* Official Letterhead */}
+          {/* Illustrative template header */}
           <div className="border-b-2 border-slate-900 pb-4 flex items-start justify-between">
             <div className="space-y-0.5">
               <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-                Government of India • Ministry of Social Justice and Empowerment
+                ILLUSTRATIVE PROTOTYPE • NOT AN OFFICIAL GOVERNMENT DOCUMENT
               </span>
               <h2 className="text-base font-extrabold text-slate-900 font-['Space_Grotesk']">
                 SAATHI ATROCITY VICTIM DYNAMIC WELLBEING STATUS DOSSIER
               </h2>
               <p className="text-xs text-slate-600 font-mono">
-                Doc Ref: MOSJE/SAATHI/MH/2026-Q2/094 • Date: August 26, 2026
+                Sample Ref: SAATHI-DEMO-094 • Placeholder date and figures
               </p>
             </div>
 
@@ -172,7 +187,7 @@ export const ReportsPage: React.FC = () => {
               2. Key Vulnerability Findings
             </h4>
             <p className="text-slate-700 leading-relaxed">
-              • <strong>Longitudinal Trial Surge:</strong> Multi-modal telemetry confirms an average +39% spike in victim distress 72 hours prior to scheduled testimony dates. Mandatory pre-trial counselling protocols successfully reduced distress velocity in 78% of cases.
+              • <strong>Illustrative narrative:</strong> This demo layout uses fictional trend and intervention figures to show where a validated longitudinal finding could appear. No effectiveness claim has been established by this prototype.
             </p>
             <p className="text-slate-700 leading-relaxed">
               • <strong>Witness Protection Efficacy:</strong> 48 statutory protection orders issued under WPS 2018 with zero reported breaches in monitored zones.

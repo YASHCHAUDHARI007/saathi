@@ -24,10 +24,20 @@ import {
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
-import { mockStageDistressData, mockPopulationDistressTrend30D } from '../data/mockData';
+import { useApp } from '../context/AppContext';
 
 export const DistressAnalyticsPage: React.FC = () => {
   const [selectedGranularity, setSelectedGranularity] = useState<'30D' | '90D' | '1Y'>('30D');
+  const { usesMockApi, cases } = useApp();
+
+  if (!usesMockApi) {
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
+        <h1 className="text-lg font-bold">Aggregate distress analytics are not configured</h1>
+        <p className="mt-1 text-xs">The current backend exposes scoped case records, but not the validated cohort, model-performance, or hearing-correlation aggregates this prototype page would require.</p>
+      </div>
+    );
+  }
 
   // Hearing correlation data
   const trialHearingSpikeData = [
@@ -46,6 +56,17 @@ export const DistressAnalyticsPage: React.FC = () => {
     { channel: 'Engagement Velocity / Pulse Drop', contributionPercent: 22, precisionRate: '88.7%' },
     { channel: 'Case Stage Legal Milestone', contributionPercent: 18, precisionRate: '96.0%' },
   ];
+  const stageGroups = new Map<string, { total: number; count: number }>();
+  cases.forEach((caseItem) => {
+    const current = stageGroups.get(caseItem.currentStage) ?? { total: 0, count: 0 };
+    current.total += caseItem.distressScore;
+    current.count += 1;
+    stageGroups.set(caseItem.currentStage, current);
+  });
+  const stageDistressData = [...stageGroups.entries()].map(([stage, aggregate]) => ({
+    stage,
+    avgDistress: Math.round(aggregate.total / aggregate.count),
+  }));
 
   return (
     <div className="space-y-6">
@@ -65,7 +86,7 @@ export const DistressAnalyticsPage: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-200">
-            Cohort: 1,284 Monitored Subjects
+            Illustrative mock cohort
           </span>
         </div>
       </div>
@@ -119,7 +140,7 @@ export const DistressAnalyticsPage: React.FC = () => {
 
         <div className="h-72 w-full pt-2">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={mockStageDistressData} margin={{ top: 15, right: 20, left: -20, bottom: 0 }}>
+            <BarChart data={stageDistressData} margin={{ top: 15, right: 20, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="stage" tick={{ fontSize: 10, fill: '#64748b' }} stroke="#cbd5e1" />
               <YAxis tick={{ fontSize: 11, fill: '#64748b' }} stroke="#cbd5e1" domain={[0, 100]} />

@@ -9,11 +9,7 @@ import {
   Scale,
   Users,
   CheckCircle2,
-  Clock,
-  AlertTriangle,
   PlusCircle,
-  Filter,
-  UserCheck,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PriorityBadge, StatusBadge } from '../components/common/RiskBadge';
@@ -23,8 +19,7 @@ export const InterventionCenterPage: React.FC = () => {
   const {
     cases,
     openInterventionModal,
-    updateInterventionStatus,
-    getCaseById,
+    recordTotals,
   } = useApp();
 
   const navigate = useNavigate();
@@ -43,15 +38,21 @@ export const InterventionCenterPage: React.FC = () => {
     return true;
   });
 
-  const categories: { type: InterventionType; label: string; icon: any; count: number }[] = [
-    { type: 'Counselling', label: 'Counselling & Trauma Care', icon: HeartHandshake, count: 124 },
-    { type: 'Witness Protection', label: 'Witness Protection (WPS)', icon: Shield, count: 48 },
-    { type: 'Medical Treatment', label: 'Medical & Forensic Care', icon: Stethoscope, count: 32 },
-    { type: 'Relocation Support', label: 'Relocation & Safe Transit', icon: Building, count: 19 },
-    { type: 'Financial Assistance', label: 'Victim Compensation (DBT)', icon: Coins, count: 76 },
-    { type: 'Legal Aid', label: 'DLSA Legal Aid & Counsel', icon: Scale, count: 68 },
-    { type: 'Rehabilitation', label: 'Livelihood Rehabilitation', icon: Users, count: 45 },
+  const categoryDefinitions: { type: InterventionType; label: string; icon: typeof HeartHandshake }[] = [
+    { type: 'Counselling', label: 'Counselling & Trauma Care', icon: HeartHandshake },
+    { type: 'Witness Protection', label: 'Witness Protection (WPS)', icon: Shield },
+    { type: 'Medical Treatment', label: 'Medical & Forensic Care', icon: Stethoscope },
+    { type: 'Relocation Support', label: 'Relocation & Safe Transit', icon: Building },
+    { type: 'Financial Assistance', label: 'Victim Compensation (DBT)', icon: Coins },
+    { type: 'Legal Aid', label: 'DLSA Legal Aid & Counsel', icon: Scale },
+    { type: 'Rehabilitation', label: 'Livelihood Rehabilitation', icon: Users },
   ];
+  const categories = categoryDefinitions.map((category) => ({
+    ...category,
+    count: allInterventions.filter((item) =>
+      item.type === category.type && item.status !== 'Completed'
+    ).length,
+  }));
 
   return (
     <div className="space-y-6">
@@ -71,11 +72,11 @@ export const InterventionCenterPage: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => openInterventionModal(cases[0])}
+            onClick={() => navigate('/cases')}
             className="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <PlusCircle className="w-4 h-4" />
-            <span>Dispatch New Case Intervention</span>
+            <span>Select a Case to Create</span>
           </button>
         </div>
       </div>
@@ -109,7 +110,7 @@ export const InterventionCenterPage: React.FC = () => {
                   isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
                 }`}
               >
-                {cat.count} Active
+                {cat.count} loaded active
               </span>
             </div>
           );
@@ -124,7 +125,7 @@ export const InterventionCenterPage: React.FC = () => {
               Intervention Action Register
             </h3>
             <span className="text-xs text-slate-500 font-semibold">
-              ({filteredInterventions.length} records matching)
+              ({filteredInterventions.length} loaded records matching; {recordTotals.interventions} accessible total)
             </span>
           </div>
 
@@ -191,24 +192,10 @@ export const InterventionCenterPage: React.FC = () => {
                     onClick={() => openInterventionModal(inv.caseItem, inv)}
                     className="px-2.5 py-1 font-bold rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 transition-colors cursor-pointer"
                   >
-                    Assign / Reschedule
+                    {inv.status === 'Completed' ? 'View completed record' : 'Assign / update workflow'}
                   </button>
 
-                  {inv.status !== 'Completed' ? (
-                    <button
-                      onClick={() =>
-                        updateInterventionStatus(
-                          inv.caseId,
-                          inv.id,
-                          'Completed',
-                          'Intervention successfully executed and verified.'
-                        )
-                      }
-                      className="px-3 py-1 font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer"
-                    >
-                      Mark Completed
-                    </button>
-                  ) : (
+                  {inv.status === 'Completed' && (
                     <span className="text-emerald-700 font-bold flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Completed
                     </span>

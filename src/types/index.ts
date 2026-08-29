@@ -98,6 +98,7 @@ export interface CaseInteraction {
 export interface RecommendedIntervention {
   id: string;
   caseId: string;
+  assignedToId?: string;
   type: InterventionType;
   title: string;
   reason: string;
@@ -119,7 +120,7 @@ export interface RiskAlert {
   riskLevel: RiskLevel;
   reason: string;
   detectedAt: string;
-  status: 'Unread' | 'Acknowledged' | 'Action Taken' | 'Resolved';
+  status: 'Unread' | 'Acknowledged' | 'Resolved';
   primaryFactor: string;
   recommendations: string[];
   distressScore: number;
@@ -153,6 +154,7 @@ export interface CaseItem {
   lastInteractionTime: string;
   assignedCounsellor: string;
   counsellorPhone?: string;
+  firNumber?: string;
   priority: PriorityLevel;
   monitoringStatus: 'Active' | 'Elevated' | 'Under Review' | 'Dormant';
   
@@ -185,10 +187,10 @@ export interface DistrictMetric {
   monitoringCases: number;
   highRiskCases: number;
   criticalCases: number;
-  avgDistressScore: number;
+  avgDistressScore: number | null;
   interventionsCompleted: number;
   followUpsDue: number;
-  riskLevel: RiskLevel;
+  riskLevel: RiskLevel | null;
   riskEscalationRate: string;
   counsellorRatio: string;
   coordinates: { x: number; y: number }; // For canvas / grid visualization

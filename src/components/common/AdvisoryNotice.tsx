@@ -12,7 +12,7 @@ export const AdvisoryNotice: React.FC<AdvisoryNoticeProps> = ({ compact = false,
       <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100/90 border border-slate-200/80 text-[11px] text-slate-600 ${className}`}>
         <ShieldCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
         <span>
-          <strong>AI Decision Support System</strong> — All risk scores are advisory and require authorized human review. Not a clinical diagnosis.
+          <strong>Prototype decision support</strong> — Risk scores are advisory, unvalidated, and require authorized human review. Not a clinical diagnosis.
         </span>
       </div>
     );
@@ -27,14 +27,14 @@ export const AdvisoryNotice: React.FC<AdvisoryNoticeProps> = ({ compact = false,
         <div className="space-y-0.5">
           <div className="flex items-center gap-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-200">
-              Government Decision-Support & Non-Clinical Advisory
+              Prototype Decision-Support Advisory
             </h4>
             <span className="text-[10px] bg-indigo-500/30 text-indigo-200 px-1.5 py-0.5 rounded font-mono">
-              MoSJE PS-26094
+              SIH PS-26094
             </span>
           </div>
           <p className="text-xs text-slate-300 leading-relaxed">
-            SAATHI provides longitudinal distress indicators and early escalation warnings to aid human case officers. <strong>AI predictions do not constitute medical or psychiatric diagnoses.</strong> Final intervention, safety, and rehabilitation decisions remain solely with authorized government officers, counsellors, and judicial authorities.
+            This interface presents records and prototype indicators returned by the configured backend. It is not an official government deployment, clinical system, or validated safety service. <strong>Displayed predictions do not constitute medical or psychiatric diagnoses.</strong> Human review and independent emergency channels remain essential.
           </p>
         </div>
       </div>

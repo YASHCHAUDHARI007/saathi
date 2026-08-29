@@ -10,46 +10,10 @@ import {
   UserCheck,
   AlertCircle,
 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 export const PrivacySecurityPage: React.FC = () => {
-  const auditLogs = [
-    {
-      id: 'AUD-8910',
-      timestamp: 'Today, 10:35:12 AM',
-      officer: 'District Officer (Pune)',
-      action: 'Reviewed Explainable AI Factor Weights',
-      resource: 'Case ATC-2026-10482',
-      ip: '10.14.82.109 (NIC VPN)',
-      status: 'VERIFIED',
-    },
-    {
-      id: 'AUD-8909',
-      timestamp: 'Today, 10:32:44 AM',
-      officer: 'Clinical Counsellor (Trauma)',
-      action: 'Scheduled In-Person Trauma Counselling',
-      resource: 'Case ATC-2026-10482',
-      ip: '10.14.82.114 (NIC VPN)',
-      status: 'VERIFIED',
-    },
-    {
-      id: 'AUD-8908',
-      timestamp: 'Today, 10:29:01 AM',
-      officer: 'System Daemon (SAATHI Engine)',
-      action: 'Ingested Chatbot Check-in & Recalculated Distress (72 -> 82)',
-      resource: 'Case ATC-2026-10482',
-      ip: '127.0.0.1 (Local Core)',
-      status: 'AUTO-SIGNED',
-    },
-    {
-      id: 'AUD-8907',
-      timestamp: 'Today, 09:15:33 AM',
-      officer: 'State Administrator (MH)',
-      action: 'Generated Monthly Atrocity Wellbeing PDF Report',
-      resource: 'Statewide Digest',
-      ip: '10.20.10.45 (NIC VPN)',
-      status: 'VERIFIED',
-    },
-  ];
+  const { auditLogs, usesMockApi } = useApp();
 
   return (
     <div className="space-y-6">
@@ -59,16 +23,16 @@ export const PrivacySecurityPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-indigo-600" />
             <h1 className="text-lg lg:text-xl font-extrabold text-slate-900 tracking-tight font-['Space_Grotesk']">
-              Privacy, Anonymity & Statutory Security Framework
+              Privacy & Security Readiness
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1 font-medium">
-            Strict compliance with Digital Personal Data Protection (DPDP) Act 2023 and Section 15A of SC/ST (PoA) Act.
+            Current implementation notes and API activity records. This page is not a security certification or legal compliance attestation.
           </p>
         </div>
 
         <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 flex items-center gap-1">
-          <ShieldCheck className="w-4 h-4" /> 100% DPDP 2023 Compliant
+          <ShieldCheck className="w-4 h-4" /> Independent compliance review pending
         </span>
       </div>
 
@@ -78,9 +42,9 @@ export const PrivacySecurityPage: React.FC = () => {
           <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 w-fit">
             <EyeOff className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-bold text-slate-900">Zero-PII Pseudonymization</h3>
+          <h3 className="text-sm font-bold text-slate-900">Pseudonymous Case Identifiers</h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Real citizen names, Aadhaar numbers, and exact residential addresses are stripped at ingestion. Only cryptographic tokens (e.g. #V-10482) are processed by AI.
+            The current case model exposes anonymous subject identifiers. End-to-end PII discovery, retention, and deletion controls still require verification.
           </p>
         </div>
 
@@ -88,9 +52,9 @@ export const PrivacySecurityPage: React.FC = () => {
           <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 w-fit">
             <Lock className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-bold text-slate-900">AES-256 Envelope Encryption</h3>
+          <h3 className="text-sm font-bold text-slate-900">Transport & Storage Controls</h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            All multi-modal check-ins, audio acoustic features, and psychological assessments are encrypted at rest and in transit via NIC KMS HSM.
+            HTTPS, database encryption, key management, backups, and rotation are deployment responsibilities and are not verified by this prototype UI.
           </p>
         </div>
 
@@ -100,7 +64,7 @@ export const PrivacySecurityPage: React.FC = () => {
           </div>
           <h3 className="text-sm font-bold text-slate-900">Role-Based Access Control (RBAC)</h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Strict compartmentalization ensures counsellors only see psychological histories while police protection officers only receive threat vectors.
+            The backend scopes case queries by authenticated role and jurisdiction. Permission tests and a production authorization review remain required.
           </p>
         </div>
 
@@ -108,22 +72,22 @@ export const PrivacySecurityPage: React.FC = () => {
           <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 w-fit">
             <FileCheck2 className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-bold text-slate-900">Immutable Audit Trail</h3>
+          <h3 className="text-sm font-bold text-slate-900">Audit Records</h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Every file inspection, AI reasoning review, and intervention scheduling action is cryptographically signed and logged for judicial audits.
+            The API returns operational audit records. Cryptographic signing, append-only storage, and tamper-evidence are not implemented or certified here.
           </p>
         </div>
       </div>
 
-      {/* Immutable Access Log Table */}
+      {/* API activity log table */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
-              Judicial & Regulatory Access Audit Trail
+              API Activity Records
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Live tamper-evident ledger tracking all officer interactions with case dossiers.
+              {usesMockApi ? 'Explicit demo-mode records; no external actions occurred.' : 'Records returned by the configured backend; not a tamper-evident ledger.'}
             </p>
           </div>
         </div>
@@ -134,11 +98,11 @@ export const PrivacySecurityPage: React.FC = () => {
               <tr>
                 <th className="py-3 px-4">Log ID</th>
                 <th className="py-3 px-3">Timestamp</th>
-                <th className="py-3 px-3">Official Role / Actor</th>
+                <th className="py-3 px-3">Role / Actor</th>
                 <th className="py-3 px-3">Action Executed</th>
-                <th className="py-3 px-3">Target Case Dossier</th>
-                <th className="py-3 px-3">IP / Network Channel</th>
-                <th className="py-3 px-4 text-right">Integrity Status</th>
+                <th className="py-3 px-3">Resource</th>
+                <th className="py-3 px-3">Recorded Network Value</th>
+                <th className="py-3 px-4 text-right">Record Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -146,10 +110,10 @@ export const PrivacySecurityPage: React.FC = () => {
                 <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-3.5 px-4 font-mono font-bold text-indigo-700">{log.id}</td>
                   <td className="py-3.5 px-3 text-slate-500 font-mono text-[11px]">{log.timestamp}</td>
-                  <td className="py-3.5 px-3 font-semibold text-slate-900">{log.officer}</td>
+                  <td className="py-3.5 px-3 font-semibold text-slate-900">{log.userName} ({log.userRole})</td>
                   <td className="py-3.5 px-3">{log.action}</td>
-                  <td className="py-3.5 px-3 font-mono font-bold text-slate-800">{log.resource}</td>
-                  <td className="py-3.5 px-3 text-slate-500 font-mono text-[11px]">{log.ip}</td>
+                  <td className="py-3.5 px-3 font-mono font-bold text-slate-800">{log.caseId || 'General'}</td>
+                  <td className="py-3.5 px-3 text-slate-500 font-mono text-[11px]">{log.ipAddress}</td>
                   <td className="py-3.5 px-4 text-right">
                     <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                       {log.status}
@@ -157,6 +121,9 @@ export const PrivacySecurityPage: React.FC = () => {
                   </td>
                 </tr>
               ))}
+              {auditLogs.length === 0 && (
+                <tr><td colSpan={7} className="py-8 px-4 text-center text-slate-500">No audit records were returned by the API.</td></tr>
+              )}
             </tbody>
           </table>
         </div>

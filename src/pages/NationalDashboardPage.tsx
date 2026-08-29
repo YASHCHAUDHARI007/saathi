@@ -9,17 +9,43 @@ import {
   ExternalLink,
   Layers,
 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 export const NationalDashboardPage: React.FC = () => {
-  const stateData = [
-    { state: 'Maharashtra', activeCases: 1284, avgDistress: 56, highRiskRate: '11.0%', interventionRate: '94.2%' },
-    { state: 'Uttar Pradesh', activeCases: 2150, avgDistress: 62, highRiskRate: '14.8%', interventionRate: '88.5%' },
-    { state: 'Madhya Pradesh', activeCases: 1420, avgDistress: 59, highRiskRate: '12.4%', interventionRate: '91.0%' },
-    { state: 'Rajasthan', activeCases: 1180, avgDistress: 58, highRiskRate: '13.1%', interventionRate: '89.6%' },
-    { state: 'Bihar', activeCases: 1640, avgDistress: 64, highRiskRate: '16.2%', interventionRate: '86.4%' },
-    { state: 'Tamil Nadu', activeCases: 890, avgDistress: 46, highRiskRate: '7.8%', interventionRate: '96.8%' },
-    { state: 'Karnataka', activeCases: 760, avgDistress: 48, highRiskRate: '8.4%', interventionRate: '95.1%' },
-  ];
+  const { usesMockApi, nationalOverview, stateMetrics } = useApp();
+
+  if (!usesMockApi && !nationalOverview) {
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
+        <h1 className="text-lg font-bold">National analytics integration is pending</h1>
+        <p className="mt-1 text-xs">The configured national aggregate endpoint returned no accessible overview for this account.</p>
+      </div>
+    );
+  }
+
+  const overview = nationalOverview ?? {
+    totalCasesMonitored: 18420,
+    highVulnerabilityCases: 2140,
+    activeUnresolvedAlerts: 312,
+    interventionsCompleted: 9670,
+    avgNationalDistressIndex: 54.2,
+    participatingStates: 7,
+    participatingDistricts: 0,
+    cctnsSyncStatus: 'Demo value',
+    eCourtsSyncStatus: 'Demo value',
+    dlsaSyncStatus: 'Demo value',
+  };
+  const stateData = usesMockApi ? [
+    { state: 'Maharashtra', activeCases: 1284, avgDistress: 56, criticalAlerts: 18, dlsaCoverage: 94.2 },
+    { state: 'Uttar Pradesh', activeCases: 2150, avgDistress: 62, criticalAlerts: 31, dlsaCoverage: 88.5 },
+    { state: 'Madhya Pradesh', activeCases: 1420, avgDistress: 59, criticalAlerts: 22, dlsaCoverage: 91.0 },
+  ] : stateMetrics.map((state) => ({
+    state: state.stateName,
+    activeCases: state.totalCases,
+    avgDistress: state.stateAvgDistress,
+    criticalAlerts: state.criticalAlerts,
+    dlsaCoverage: state.dlsaCoverage,
+  }));
 
   return (
     <div className="space-y-6">
@@ -29,16 +55,18 @@ export const NationalDashboardPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <Globe2 className="w-5 h-5 text-indigo-600" />
             <h1 className="text-lg lg:text-xl font-extrabold text-slate-900 tracking-tight font-['Space_Grotesk']">
-              National Atrocity Victim Wellbeing Intelligence
+              Prototype National Wellbeing View
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1 font-medium">
-            MoSJE Department of Social Justice and Empowerment • Pan-India Executive Oversight.
+            {usesMockApi
+              ? 'Illustrative SIH presentation data; not an official government monitoring system.'
+              : 'Authorized national aggregates returned by the configured backend.'}
           </p>
         </div>
 
         <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-          MoSJE Central Grid • 28 States & 8 UTs
+          {usesMockApi ? 'Illustrative mock dataset' : 'Authorized API aggregates'}
         </span>
       </div>
 
@@ -48,32 +76,32 @@ export const NationalDashboardPage: React.FC = () => {
           <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider block mb-1">
             Total Monitored Cohort (Pan-India)
           </span>
-          <span className="text-3xl font-extrabold font-['Space_Grotesk']">18,420</span>
-          <span className="text-xs text-slate-400 block mt-1">Across 748 Special Courts</span>
+          <span className="text-3xl font-extrabold font-['Space_Grotesk']">{overview.totalCasesMonitored.toLocaleString()}</span>
+          <span className="text-xs text-slate-400 block mt-1">{overview.participatingStates} states • {overview.participatingDistricts} districts</span>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
             National Avg Distress Index
           </span>
-          <span className="text-3xl font-extrabold text-slate-900 font-['Space_Grotesk']">54.2</span>
-          <span className="text-xs text-emerald-600 block mt-1 font-semibold">↓ 3.8 pts vs FY25 Baseline</span>
+          <span className="text-3xl font-extrabold text-slate-900 font-['Space_Grotesk']">{overview.avgNationalDistressIndex ?? 'No data'}</span>
+          <span className="text-xs text-slate-500 block mt-1 font-semibold">Backend aggregate</span>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-            Witness Protection Compliance
+            High-Vulnerability Cases
           </span>
-          <span className="text-3xl font-extrabold text-emerald-600 font-['Space_Grotesk']">96.4%</span>
-          <span className="text-xs text-slate-500 block mt-1">WPS 2018 Statutory Orders</span>
+          <span className="text-3xl font-extrabold text-rose-600 font-['Space_Grotesk']">{overview.highVulnerabilityCases.toLocaleString()}</span>
+          <span className="text-xs text-slate-500 block mt-1">{overview.activeUnresolvedAlerts} unresolved alerts</span>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-            Centrally Sponsored DBT Relief
+            Completed Interventions
           </span>
-          <span className="text-3xl font-extrabold text-indigo-700 font-['Space_Grotesk']">₹ 142.8 Cr</span>
-          <span className="text-xs text-slate-500 block mt-1">100% Direct to Bank Account</span>
+          <span className="text-3xl font-extrabold text-indigo-700 font-['Space_Grotesk']">{overview.interventionsCompleted.toLocaleString()}</span>
+          <span className="text-xs text-slate-500 block mt-1">Recorded aggregate; effectiveness not asserted</span>
         </div>
       </div>
 
@@ -97,8 +125,8 @@ export const NationalDashboardPage: React.FC = () => {
                 <th className="py-3 px-4">State / UT</th>
                 <th className="py-3 px-3">Active Monitored Cases</th>
                 <th className="py-3 px-3 text-center">Avg Distress Score</th>
-                <th className="py-3 px-3">High-Risk Prevalence</th>
-                <th className="py-3 px-3">Intervention Execution Rate</th>
+                <th className="py-3 px-3">Critical Alerts</th>
+                <th className="py-3 px-3">Reported DLSA Coverage</th>
                 <th className="py-3 px-4 text-right">Status</th>
               </tr>
             </thead>
@@ -110,21 +138,25 @@ export const NationalDashboardPage: React.FC = () => {
                   <td className="py-3.5 px-3 text-center">
                     <span
                       className={`font-bold font-mono px-2 py-0.5 rounded text-xs ${
-                        s.avgDistress >= 60
+                        s.avgDistress === null
+                          ? 'bg-slate-100 text-slate-600'
+                          : s.avgDistress >= 60
                           ? 'bg-rose-50 text-rose-700'
                           : s.avgDistress >= 50
                           ? 'bg-amber-50 text-amber-800'
                           : 'bg-emerald-50 text-emerald-700'
                       }`}
                     >
-                      {s.avgDistress} / 100
+                      {s.avgDistress === null ? 'No data' : `${s.avgDistress} / 100`}
                     </span>
                   </td>
-                  <td className="py-3.5 px-3 font-semibold text-rose-600">{s.highRiskRate}</td>
-                  <td className="py-3.5 px-3 font-semibold text-emerald-700">{s.interventionRate}</td>
+                  <td className="py-3.5 px-3 font-semibold text-rose-600">{s.criticalAlerts}</td>
+                  <td className="py-3.5 px-3 font-semibold text-emerald-700">
+                    {s.dlsaCoverage === null ? 'Not reported' : `${s.dlsaCoverage}%`}
+                  </td>
                   <td className="py-3.5 px-4 text-right">
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      <ShieldCheck className="w-3 h-3" /> Fully Compliant
+                      <ShieldCheck className="w-3 h-3" /> {usesMockApi ? 'Demo value only' : 'Backend record'}
                     </span>
                   </td>
                 </tr>

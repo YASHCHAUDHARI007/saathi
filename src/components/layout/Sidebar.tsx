@@ -22,13 +22,14 @@ import {
   Heart,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import type { UserRole } from '../../types';
 
 interface SidebarProps {
   onCloseMobile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
-  const { userRole, setUserRole, unreadAlertsCount, logout, setShowCheckInSimulator } = useApp();
+  const { userRole, setUserRole, unreadAlertsCount, logout, setShowCheckInSimulator, isDemoMode, usesMockApi } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -69,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                 SAATHI
               </h1>
               <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">
-                MoSJE
+                Prototype
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-medium truncate">
@@ -84,15 +85,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
         </p>
       </div>
 
-      {/* Role Switcher */}
-      <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/90">
+      {/* Role switching is intentionally limited to explicit demo deployments. */}
+      {isDemoMode && <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/90">
         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
           Active Role Persona
         </label>
         <select
           value={userRole}
           onChange={(e) => {
-            const role = e.target.value as any;
+            const role = e.target.value as UserRole;
             setUserRole(role);
             if (role === 'Victim / Citizen') {
               navigate('/victim');
@@ -108,7 +109,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
           <option value="National Administrator">National Admin (MoSJE HQ)</option>
           <option value="Victim / Citizen">Victim / Citizen (Anjali Gaikwad)</option>
         </select>
-      </div>
+      </div>}
 
       {/* Navigation List */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1 custom-scrollbar">
@@ -116,7 +117,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
           Core Workflows
         </span>
 
-        {navItems.map((item) => {
+        {navItems.filter((item) => {
+          if (item.label === 'Demo Case Profile' && !isDemoMode) return false;
+          if (item.path === '/victim') return userRole === 'Victim / Citizen';
+          if (userRole === 'Victim / Citizen') return false;
+          if (item.path === '/national') return userRole === 'National Administrator';
+          if (item.path === '/state') return userRole === 'State Administrator' || userRole === 'National Administrator';
+          return true;
+        }).map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
 
@@ -162,22 +170,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
 
       {/* Simulator Shortcut & Footer */}
       <div className="p-3 border-t border-slate-800 bg-slate-950/60 space-y-2">
-        <button
+        {isDemoMode && <button
           onClick={() => setShowCheckInSimulator(true)}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 transition-colors cursor-pointer"
         >
           <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
           Test Check-in Simulator
-        </button>
+        </button>}
 
         <div className="flex items-center justify-between pt-2 px-1 text-[11px] text-slate-400">
           <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[10px]">NIC Cloud (Secure)</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-[10px]">{usesMockApi ? 'Local demo data' : 'API session'}</span>
           </div>
 
           <button
-            onClick={logout}
+            onClick={() => void logout()}
             className="text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1 cursor-pointer"
             title="Sign Out"
           >
