@@ -18,9 +18,26 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts';
-import { mockDistrictData } from '../data/mockData';
+import { useApp } from '../context/AppContext';
 
 export const StateAnalyticsPage: React.FC = () => {
+  const { districtMetrics, stateMetrics } = useApp();
+  const totalCases = stateMetrics.length > 0
+    ? stateMetrics.reduce((total, state) => total + state.totalCases, 0)
+    : districtMetrics.reduce((total, district) => total + district.activeCases, 0);
+  const criticalAlerts = stateMetrics.length > 0
+    ? stateMetrics.reduce((total, state) => total + state.criticalAlerts, 0)
+    : districtMetrics.reduce((total, district) => total + district.criticalCases, 0);
+  const accessibleDistricts = stateMetrics.length > 0
+    ? stateMetrics.reduce((total, state) => total + state.activeDistricts, 0)
+    : districtMetrics.length;
+  const completedInterventions = districtMetrics.reduce((total, district) => total + district.interventionsCompleted, 0);
+  const chartData = districtMetrics.map((district) => ({
+    district: district.name,
+    activeCases: district.activeCases,
+    highRiskCases: district.highRiskCases + district.criticalCases,
+  }));
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -29,16 +46,16 @@ export const StateAnalyticsPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <Building2 className="w-5 h-5 text-indigo-600" />
             <h1 className="text-lg lg:text-xl font-extrabold text-slate-900 tracking-tight font-['Space_Grotesk']">
-              State-Level Oversight & Policy Dashboard (Maharashtra)
+              State-Level Oversight Dashboard
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1 font-medium">
-            Aggregated cross-district monitoring, witness protection deployment, and SLA compliance metrics.
+            Cross-district metrics returned by the configured analytics API for the authenticated jurisdiction.
           </p>
         </div>
 
         <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-200">
-          State Directorate of Social Justice
+          {stateMetrics.length > 0 ? stateMetrics.map((state) => state.stateName).join(', ') : 'Authorized state scope'}
         </span>
       </div>
 
@@ -46,34 +63,34 @@ export const StateAnalyticsPage: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-            Total Monitored Cases
+            Accessible Districts
           </span>
-          <span className="text-2xl font-extrabold text-slate-900 font-['Space_Grotesk']">1,284</span>
-          <span className="text-[11px] text-emerald-600 block mt-1 font-semibold">+8.4% month-over-month</span>
+          <span className="text-2xl font-extrabold text-slate-900 font-['Space_Grotesk']">{accessibleDistricts}</span>
+          <span className="text-[11px] text-slate-500 block mt-1 font-semibold">API records</span>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-            Statewide High-Risk Cases
+            Active Cases
           </span>
-          <span className="text-2xl font-extrabold text-rose-600 font-['Space_Grotesk']">142</span>
-          <span className="text-[11px] text-slate-500 block mt-1 font-medium">11.0% of total cohort</span>
+          <span className="text-2xl font-extrabold text-indigo-700 font-['Space_Grotesk']">{totalCases}</span>
+          <span className="text-[11px] text-slate-500 block mt-1 font-medium">Across accessible districts</span>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-            Avg Intervention SLA
+            Critical Alerts
           </span>
-          <span className="text-2xl font-extrabold text-emerald-600 font-['Space_Grotesk']">3.8 Hrs</span>
-          <span className="text-[11px] text-emerald-600 block mt-1 font-semibold">Target &lt; 6.0 Hrs (Compliant)</span>
+          <span className="text-2xl font-extrabold text-rose-600 font-['Space_Grotesk']">{criticalAlerts}</span>
+          <span className="text-[11px] text-slate-500 block mt-1 font-semibold">No SLA compliance asserted</span>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-            Rehabilitation Relief Disbursed
+            Completed Interventions
           </span>
-          <span className="text-2xl font-extrabold text-indigo-700 font-['Space_Grotesk']">₹ 4.82 Cr</span>
-          <span className="text-[11px] text-slate-500 block mt-1 font-medium">Direct Benefit Transfer</span>
+          <span className="text-2xl font-extrabold text-emerald-700 font-['Space_Grotesk']">{completedInterventions}</span>
+          <span className="text-[11px] text-slate-500 block mt-1 font-medium">Recorded by the API</span>
         </div>
       </div>
 
@@ -90,7 +107,7 @@ export const StateAnalyticsPage: React.FC = () => {
 
         <div className="h-72 w-full pt-2">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={mockDistrictData} margin={{ top: 15, right: 20, left: -20, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 15, right: 20, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="district" tick={{ fontSize: 11, fill: '#64748b' }} stroke="#cbd5e1" />
               <YAxis tick={{ fontSize: 11, fill: '#64748b' }} stroke="#cbd5e1" />

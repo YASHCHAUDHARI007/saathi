@@ -30,13 +30,15 @@ export const CaseMonitoringPage: React.FC = () => {
     openReasoningDrawer,
     openInterventionModal,
     setShowCheckInSimulator,
+    isDemoMode,
+    recordTotals,
   } = useApp();
 
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [sortBy, setSortBy] = useState<'distress' | 'recent' | 'risk'>('distress');
 
-  const districts = ['All', 'Pune', 'Nagpur', 'Nashik', 'Aurangabad', 'Kolhapur', 'Amravati', 'Solapur', 'Thane'];
+  const districts = ['All', ...Array.from(new Set(cases.map((item) => item.district).filter(Boolean))).sort()];
   const stages: ('All' | CaseStage)[] = [
     'All',
     'Complaint',
@@ -63,9 +65,11 @@ export const CaseMonitoringPage: React.FC = () => {
     setFilters({
       searchQuery: '',
       riskLevel: 'All',
-      caseStage: 'All',
+      stage: 'All',
       district: 'All',
       caseType: 'All',
+      counsellor: 'All',
+      dateRange: '30D',
     });
   };
 
@@ -81,7 +85,7 @@ export const CaseMonitoringPage: React.FC = () => {
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1 font-medium">
-            Continuous psycho-social wellbeing tracking for {cases.length} registered atrocity victims and protected witnesses.
+            Showing {cases.length} loaded case records out of {recordTotals.cases} accessible records.
           </p>
         </div>
 
@@ -107,12 +111,12 @@ export const CaseMonitoringPage: React.FC = () => {
             </button>
           </div>
 
-          <button
+          {isDemoMode && <button
             onClick={() => setShowCheckInSimulator(true)}
             className="px-3.5 py-2 text-xs font-bold rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5" /> Simulate Pulse
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -164,8 +168,8 @@ export const CaseMonitoringPage: React.FC = () => {
           {/* Case Stage Filter */}
           <div>
             <select
-              value={filters.caseStage}
-              onChange={(e) => setFilters((prev) => ({ ...prev, caseStage: e.target.value as any }))}
+              value={filters.stage}
+              onChange={(e) => setFilters((prev) => ({ ...prev, stage: e.target.value }))}
               className="w-full py-2 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 font-medium"
             >
               {stages.map((s) => (
@@ -181,13 +185,13 @@ export const CaseMonitoringPage: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-600">
-              Showing <strong className="text-indigo-700">{sortedCases.length}</strong> of {cases.length} cases
+              Showing <strong className="text-indigo-700">{sortedCases.length}</strong> filtered records on this loaded page ({recordTotals.cases} accessible in total)
             </span>
 
             {(filters.searchQuery ||
               filters.district !== 'All' ||
               filters.riskLevel !== 'All' ||
-              filters.caseStage !== 'All') && (
+              filters.stage !== 'All') && (
               <button
                 onClick={resetFilters}
                 className="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 cursor-pointer ml-2"

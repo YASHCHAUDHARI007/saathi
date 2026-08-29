@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BellRing,
@@ -18,11 +18,50 @@ import { RiskBadge, PriorityBadge } from '../components/common/RiskBadge';
 import { RiskLevel } from '../types';
 
 export const RiskAlertsPage: React.FC = () => {
-  const { alerts, unreadAlertsCount, acknowledgeAlert, openReasoningDrawer, getCaseById } = useApp();
+  const { alerts, unreadAlertsCount, acknowledgeAlert, resolveAlert, openReasoningDrawer, getCaseById, recordTotals } = useApp();
   const navigate = useNavigate();
 
   const [filterLevel, setFilterLevel] = useState<'All' | RiskLevel>('All');
   const [showAcknowledged, setShowAcknowledged] = useState(true);
+  const pendingAlertIdsRef = useRef<Set<string>>(new Set());
+  const [pendingAlertIds, setPendingAlertIds] = useState<Set<string>>(new Set());
+  const [resolutionAlertId, setResolutionAlertId] = useState<string | null>(null);
+  const [resolutionNotes, setResolutionNotes] = useState('');
+
+  const handleAcknowledge = async (alertId: string): Promise<void> => {
+    if (pendingAlertIdsRef.current.has(alertId)) return;
+    const pending = new Set(pendingAlertIdsRef.current).add(alertId);
+    pendingAlertIdsRef.current = pending;
+    setPendingAlertIds(pending);
+    try {
+      await acknowledgeAlert(alertId, 'Alert reviewed by the assigned user.');
+    } finally {
+      const remaining = new Set(pendingAlertIdsRef.current);
+      remaining.delete(alertId);
+      pendingAlertIdsRef.current = remaining;
+      setPendingAlertIds(remaining);
+    }
+  };
+
+  const handleResolve = async (alertId: string): Promise<void> => {
+    const evidence = resolutionNotes.trim();
+    if (!evidence || pendingAlertIdsRef.current.has(alertId)) return;
+    const pending = new Set(pendingAlertIdsRef.current).add(alertId);
+    pendingAlertIdsRef.current = pending;
+    setPendingAlertIds(pending);
+    try {
+      const resolved = await resolveAlert(alertId, evidence);
+      if (resolved) {
+        setResolutionAlertId(null);
+        setResolutionNotes('');
+      }
+    } finally {
+      const remaining = new Set(pendingAlertIdsRef.current);
+      remaining.delete(alertId);
+      pendingAlertIdsRef.current = remaining;
+      setPendingAlertIds(remaining);
+    }
+  };
 
   const filteredAlerts = alerts.filter((a) => {
     if (filterLevel !== 'All' && a.riskLevel !== filterLevel) return false;
@@ -41,10 +80,10 @@ export const RiskAlertsPage: React.FC = () => {
             </div>
             <div>
               <h1 className="text-lg lg:text-xl font-extrabold text-slate-900 tracking-tight font-['Space_Grotesk']">
-                Real-Time Risk & Escalation Alert Center
+                Risk & Escalation Alert Center
               </h1>
               <p className="text-xs text-slate-500 font-medium">
-                Live notification stream triggered by acute distress delta, threat vocabulary, acoustic vocal tremors, or missed check-ins.
+                Alert records returned by the configured API for this authenticated account.
               </p>
             </div>
           </div>
@@ -53,7 +92,7 @@ export const RiskAlertsPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
-            {unreadAlertsCount} Unacknowledged Critical Alerts
+            {unreadAlertsCount} unread on loaded page • {recordTotals.alerts} accessible total
           </span>
         </div>
       </div>
@@ -89,7 +128,7 @@ export const RiskAlertsPage: React.FC = () => {
 
           <span className="text-slate-400">|</span>
           <span className="text-slate-500 font-semibold">
-            Average Officer Response SLA: <strong className="text-emerald-700">18 mins</strong>
+            Response SLA: <strong className="text-slate-700">not provided by the API</strong>
           </span>
         </div>
       </div>
@@ -97,7 +136,7 @@ export const RiskAlertsPage: React.FC = () => {
       {/* Alert Cards Feed */}
       <div className="space-y-3">
         {filteredAlerts.map((alert) => {
-          const isPending = alert.status === 'Pending';
+          const isPending = alert.status === 'Unread';
           const caseObj = getCaseById(alert.caseId);
 
           return (
@@ -131,10 +170,10 @@ export const RiskAlertsPage: React.FC = () => {
 
                   <div className="flex items-center gap-4 text-xs text-slate-600">
                     <span className="flex items-center gap-1 text-slate-500">
-                      <Clock className="w-3.5 h-3.5" /> SLA Target: <strong className="text-rose-600">{alert.slaTimeRemaining}</strong>
+                      <Clock className="w-3.5 h-3.5" /> Recorded: <strong className="text-rose-600">{alert.detectedAt}</strong>
                     </span>
                     <span>•</span>
-                    <span>Assigned Officer: <strong>{alert.assignedOfficer}</strong></span>
+                    <span>Assigned Counsellor: <strong>{alert.assignedCounsellor}</strong></span>
                   </div>
                 </div>
 
@@ -158,14 +197,54 @@ export const RiskAlertsPage: React.FC = () => {
 
                   {isPending ? (
                     <button
-                      onClick={() => acknowledgeAlert(alert.id, 'Verified threat report with protection squad.')}
-                      className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center gap-1 cursor-pointer shadow-xs"
+                      onClick={() => void handleAcknowledge(alert.id)}
+                      disabled={pendingAlertIds.has(alert.id)}
+                      className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 disabled:cursor-wait text-white transition-colors flex items-center gap-1 cursor-pointer shadow-xs"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Acknowledge
+                      <CheckCircle2 className="w-3.5 h-3.5" /> {pendingAlertIds.has(alert.id) ? 'Saving…' : 'Acknowledge'}
                     </button>
+                  ) : alert.status === 'Acknowledged' ? (
+                    resolutionAlertId === alert.id ? (
+                      <div className="flex flex-col gap-1.5 min-w-56">
+                        <textarea
+                          value={resolutionNotes}
+                          onChange={(event) => setResolutionNotes(event.target.value)}
+                          rows={2}
+                          maxLength={1000}
+                          placeholder="Resolution evidence (required)"
+                          className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                        />
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => { setResolutionAlertId(null); setResolutionNotes(''); }}
+                            disabled={pendingAlertIds.has(alert.id)}
+                            className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs font-bold text-slate-600 disabled:opacity-60"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleResolve(alert.id)}
+                            disabled={!resolutionNotes.trim() || pendingAlertIds.has(alert.id)}
+                            className="flex-1 rounded-lg bg-emerald-600 px-2 py-1.5 text-xs font-bold text-white disabled:bg-emerald-300 disabled:cursor-not-allowed"
+                          >
+                            {pendingAlertIds.has(alert.id) ? 'Saving…' : 'Resolve'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setResolutionAlertId(alert.id); setResolutionNotes(''); }}
+                        className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                      >
+                        Add evidence & resolve
+                      </button>
+                    )
                   ) : (
                     <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Acknowledged
+                      <CheckCircle2 className="w-3.5 h-3.5" /> {alert.status}
                     </span>
                   )}
                 </div>

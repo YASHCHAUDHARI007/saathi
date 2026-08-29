@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, HeartHandshake, ShieldCheck, UserCheck, Calendar, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { X, HeartHandshake, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { InterventionStatus, InterventionType, PriorityLevel } from '../../types';
 
@@ -10,52 +10,146 @@ export const InterventionActionModal: React.FC = () => {
     updateInterventionStatus,
     assignIntervention,
     addRecommendedIntervention,
+    staffDirectory,
+    currentUser,
+    usesMockApi,
   } = useApp();
 
-  const [assignedOfficer, setAssignedOfficer] = useState('');
-  const [selectedRole, setSelectedRole] = useState('District Senior Counsellor');
-  const [selectedStatus, setSelectedStatus] = useState<InterventionStatus>('In Progress');
+  const [assignedStaffId, setAssignedStaffId] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<InterventionStatus | ''>('');
   const [actionNotes, setActionNotes] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   // For adding new intervention mode
   const [newType, setNewType] = useState<InterventionType>('Counselling');
   const [newTitle, setNewTitle] = useState('');
   const [newReason, setNewReason] = useState('');
-  const [newPriority, setNewPriority] = useState<PriorityLevel>('P1');
+  const [newPriority, setNewPriority] = useState<PriorityLevel | ''>('');
+
+  const interventionId = activeInterventionModalCase?.intervention?.id;
+  const caseId = activeInterventionModalCase?.caseItem.id;
+
+  useEffect(() => {
+    setAssignedStaffId('');
+    setSelectedStatus('');
+    setActionNotes('');
+    setIsSuccess(false);
+    setIsSubmitting(false);
+    setSubmitError('');
+    setNewType('Counselling');
+    setNewTitle('');
+    setNewReason('');
+    setNewPriority('');
+  }, [caseId, interventionId, activeInterventionModalCase?.intervention]);
+
+  const allowedStatusTransitions = useMemo<InterventionStatus[]>(() => {
+    const currentStatus = activeInterventionModalCase?.intervention?.status;
+    if (currentStatus === 'Pending') return ['In Progress', 'Escalated'];
+    if (currentStatus === 'In Progress') return ['Completed', 'Escalated'];
+    if (currentStatus === 'Escalated') return ['In Progress', 'Completed'];
+    return [];
+  }, [activeInterventionModalCase?.intervention?.status]);
 
   if (!activeInterventionModalCase) return null;
 
   const { caseItem, intervention } = activeInterventionModalCase;
+  const staffCandidates = currentUser
+    && (currentUser.role === 'COUNSELLOR' || currentUser.role === 'DISTRICT_OFFICER')
+    && !staffDirectory.some((member) => member.id === currentUser.id)
+    ? [
+        ...staffDirectory,
+        {
+          id: currentUser.id,
+          display_name: [currentUser.first_name, currentUser.last_name].filter(Boolean).join(' ') || currentUser.username,
+          role: currentUser.role,
+          district: currentUser.district ?? null,
+          district_name: currentUser.district_name ?? null,
+          designation: currentUser.designation ?? '',
+        },
+      ]
+    : staffDirectory;
+  const selectedStaff = staffCandidates.find((member) => member.id === assignedStaffId);
+  const assignableStaff = staffCandidates.filter((member) =>
+    (member.role === 'COUNSELLOR' || member.role === 'DISTRICT_OFFICER')
+    && (usesMockApi || member.district_name === caseItem.district)
+  );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmitError('');
 
+    let saved = false;
     if (intervention) {
-      if (assignedOfficer) {
-        assignIntervention(caseItem.id, intervention.id, assignedOfficer, selectedRole);
+      if (selectedStatus === 'Completed' && !actionNotes.trim()) {
+        setIsSubmitting(false);
+        setSubmitError('Completion requires specific verification or outcome notes.');
+        return;
       }
-      updateInterventionStatus(caseItem.id, intervention.id, selectedStatus, actionNotes);
+      if (!selectedStaff && !selectedStatus) {
+        setIsSubmitting(false);
+        setSubmitError('Choose an assignment or an allowed status transition before saving.');
+        return;
+      }
+      if (selectedStaff) {
+        const assignmentSaved = await assignIntervention(
+          caseItem.id,
+          intervention.id,
+          selectedStaff.id,
+        );
+        if (!assignmentSaved) {
+          setIsSubmitting(false);
+          setSubmitError('The assignment was not saved, so the status transition was not attempted.');
+          return;
+        }
+        saved = true;
+      }
+      if (selectedStatus) {
+        const statusSaved = await updateInterventionStatus(
+          caseItem.id,
+          intervention.id,
+          selectedStatus,
+          actionNotes,
+        );
+        if (!statusSaved && saved) {
+          setIsSubmitting(false);
+          setSubmitError('The assignment was saved, but the status transition failed. Review the request error before retrying the transition.');
+          return;
+        }
+        saved = statusSaved;
+      }
     } else {
-      // Create new
-      addRecommendedIntervention(caseItem.id, {
+      const title = newTitle.trim();
+      const reason = newReason.trim();
+      if (!title || !reason || !newPriority) {
+        setIsSubmitting(false);
+        setSubmitError('Enter a specific title and rationale, then choose a priority classification.');
+        return;
+      }
+      saved = await addRecommendedIntervention(caseItem.id, {
         caseId: caseItem.id,
         type: newType,
-        title: newTitle || `${newType} Intervention`,
-        reason: newReason || 'Officer initiated supportive intervention.',
+        title,
+        reason,
         priority: newPriority,
-        assignedTo: assignedOfficer || 'Assigned Officer',
-        assignedRole: selectedRole,
-        status: selectedStatus,
+        assignedToId: selectedStaff?.id,
+        assignedTo: selectedStaff?.display_name || 'Unassigned',
+        assignedRole: selectedStaff?.designation || selectedStaff?.role || 'Unassigned',
+        status: 'Pending',
         actionNotes,
       });
     }
 
+    setIsSubmitting(false);
+    if (!saved) {
+      setSubmitError('The intervention was not saved. Review the request error and try again.');
+      return;
+    }
+
     setIsSuccess(true);
-    setTimeout(() => {
-      setIsSuccess(false);
-      closeInterventionModal();
-    }, 1200);
   };
 
   return (
@@ -80,7 +174,8 @@ export const InterventionActionModal: React.FC = () => {
           </div>
           <button
             onClick={closeInterventionModal}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            disabled={isSubmitting}
+            className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <X className="w-5 h-5" />
           </button>
@@ -134,7 +229,7 @@ export const InterventionActionModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Intervention Reason</label>
+                <label className="block font-bold text-slate-700 mb-1">Intervention Rationale</label>
                 <textarea
                   value={newReason}
                   onChange={(e) => setNewReason(e.target.value)}
@@ -147,62 +242,76 @@ export const InterventionActionModal: React.FC = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
             <div>
               <label className="block font-bold text-slate-700 mb-1">Assign Official / Specialist</label>
-              <input
-                type="text"
-                value={assignedOfficer}
-                onChange={(e) => setAssignedOfficer(e.target.value)}
-                placeholder={intervention?.assignedTo || 'Dr. Sunita Deshmukh'}
-                className="w-full p-2.5 rounded-lg border border-slate-300 bg-white"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Official Role</label>
               <select
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
-                className="w-full p-2.5 rounded-lg border border-slate-300 bg-white font-medium"
+                value={assignedStaffId}
+                onChange={(e) => setAssignedStaffId(e.target.value)}
+                disabled={intervention?.status === 'Completed'}
+                className="w-full p-2.5 rounded-lg border border-slate-300 bg-white font-medium disabled:bg-slate-100 disabled:text-slate-500"
               >
-                <option value="District Senior Clinical Counsellor">District Senior Clinical Counsellor</option>
-                <option value="DSP SC/ST Protection Cell">DSP SC/ST Protection Cell</option>
-                <option value="DLSA Legal Aid Counsel">DLSA Legal Aid Counsel</option>
-                <option value="District Social Welfare Officer">District Social Welfare Officer</option>
-                <option value="Medical Superintendent">Medical Superintendent</option>
-                <option value="Sub-Divisional Magistrate">Sub-Divisional Magistrate</option>
+                <option value="">
+                  {intervention?.status === 'Completed'
+                    ? 'Completed intervention — assignment locked'
+                    : intervention
+                      ? `Keep ${intervention.assignedTo}`
+                      : 'Leave unassigned'}
+                </option>
+                {assignableStaff.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.display_name} — {member.designation || member.role}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Status Transition</label>
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value as InterventionStatus)}
-                className="w-full p-2.5 rounded-lg border border-slate-300 bg-white font-medium"
-              >
-                <option value="Pending">Pending</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Completed">Mark as Completed</option>
-                <option value="Escalated">Escalate to State Level</option>
-              </select>
-            </div>
+            {intervention ? (
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Status Transition</label>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value as InterventionStatus | '')}
+                  disabled={allowedStatusTransitions.length === 0}
+                  className="w-full p-2.5 rounded-lg border border-slate-300 bg-white font-medium disabled:bg-slate-100 disabled:text-slate-500"
+                >
+                  <option value="">
+                    {allowedStatusTransitions.length > 0 ? 'No status change' : 'No further transitions'}
+                  </option>
+                  {allowedStatusTransitions.map((status) => (
+                    <option key={status} value={status}>
+                      {status === 'Completed' ? 'Mark as Completed' : status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Initial Status</label>
+                <div className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 font-medium text-slate-600">
+                  Pending
+                </div>
+              </div>
+            )}
 
-            <div>
+            {!intervention && (
+              <div>
               <label className="block font-bold text-slate-700 mb-1">Priority Classification</label>
               <select
                 value={newPriority}
-                onChange={(e) => setNewPriority(e.target.value as PriorityLevel)}
+                onChange={(e) => setNewPriority(e.target.value as PriorityLevel | '')}
                 className="w-full p-2.5 rounded-lg border border-slate-300 bg-white font-medium"
+                required
               >
+                <option value="" disabled>Select priority classification</option>
                 <option value="P1">P1 (Immediate / Within 4 Hours)</option>
                 <option value="P2">P2 (Urgent / Within 24 Hours)</option>
                 <option value="P3">P3 (Routine / Within 72 Hours)</option>
               </select>
-            </div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -216,23 +325,32 @@ export const InterventionActionModal: React.FC = () => {
             />
           </div>
 
+          {submitError && (
+            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-rose-800">
+              {submitError}
+            </div>
+          )}
+
           <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={closeInterventionModal}
-              className="px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              disabled={isSubmitting}
+              className="px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSuccess}
+              disabled={isSuccess || isSubmitting}
               className="px-5 py-2 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               {isSuccess ? (
                 <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" /> Saved Successfully!
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" /> Saved — Close When Ready
                 </>
+              ) : isSubmitting ? (
+                'Saving…'
               ) : (
                 'Save Intervention Record'
               )}

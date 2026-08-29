@@ -12,26 +12,34 @@ import {
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
-import { mockDistrictData } from '../data/mockData';
 import { useApp } from '../context/AppContext';
 
 export const DistrictAnalyticsPage: React.FC = () => {
-  const { setFilters } = useApp();
+  const { setFilters, districtMetrics } = useApp();
   const navigate = useNavigate();
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>('Pune');
   const [searchDistrict, setSearchDistrict] = useState('');
 
-  const filteredDistricts = mockDistrictData.filter((d) =>
-    d.district.toLowerCase().includes(searchDistrict.toLowerCase())
+  const filteredDistricts = districtMetrics.filter((district) =>
+    district.name.toLowerCase().includes(searchDistrict.toLowerCase())
   );
 
   const activeDistrictObj =
-    mockDistrictData.find((d) => d.district === selectedDistrict) || mockDistrictData[0];
+    districtMetrics.find((district) => district.name === selectedDistrict) || districtMetrics[0];
 
   const handleDistrictDrilldown = (districtName: string) => {
     setFilters((prev) => ({ ...prev, district: districtName }));
     navigate('/cases');
   };
+
+  if (!activeDistrictObj) {
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
+        <h1 className="text-lg font-bold">District analytics are unavailable</h1>
+        <p className="mt-1 text-xs">The configured analytics API returned no accessible district records.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -45,13 +53,13 @@ export const DistrictAnalyticsPage: React.FC = () => {
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1 font-medium">
-            Granular jurisdictional monitoring across 36 districts of Maharashtra State under MoSJE SC/ST Protection Framework.
+            District-level metrics returned by the configured analytics API for this account's jurisdiction.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-            Active Districts: 36 (Statewide)
+            Accessible Districts: {districtMetrics.length}
           </span>
         </div>
       </div>
@@ -65,23 +73,23 @@ export const DistrictAnalyticsPage: React.FC = () => {
                 District Spotlight
               </span>
               <span className="text-[10px] bg-indigo-500/30 text-indigo-200 px-2 py-0.5 rounded font-mono">
-                {activeDistrictObj.district} Jurisdiction
+                {activeDistrictObj.name} Jurisdiction
               </span>
             </div>
             <h2 className="text-xl lg:text-2xl font-bold tracking-tight text-white font-['Space_Grotesk']">
-              {activeDistrictObj.district} District • {activeDistrictObj.activeCases} Monitored Cases
+              {activeDistrictObj.name} District • {activeDistrictObj.activeCases} Active Cases
             </h2>
             <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
-              Average Distress: <strong className="text-white">{activeDistrictObj.avgDistressScore}/100</strong> • High-Risk Cases: <strong className="text-rose-400">{activeDistrictObj.highRiskCases}</strong> • Counsellors Deployed: <strong className="text-white">{activeDistrictObj.assignedCounsellors}</strong> • Intervention Response Rate: <strong className="text-emerald-400">{activeDistrictObj.interventionRate}%</strong>
+              Average Distress: <strong className="text-white">{activeDistrictObj.avgDistressScore === null ? 'No data' : `${activeDistrictObj.avgDistressScore}/100`}</strong> • High-Risk Cases: <strong className="text-rose-400">{activeDistrictObj.highRiskCases}</strong> • Counsellor Ratio: <strong className="text-white">{activeDistrictObj.counsellorRatio}</strong> • Completed Interventions: <strong className="text-emerald-400">{activeDistrictObj.interventionsCompleted}</strong>
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => handleDistrictDrilldown(activeDistrictObj.district)}
+              onClick={() => handleDistrictDrilldown(activeDistrictObj.name)}
               className="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md flex items-center gap-2 cursor-pointer"
             >
-              <span>View {activeDistrictObj.district} Cases in Register</span>
+              <span>View {activeDistrictObj.name} Cases in Register</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -114,12 +122,12 @@ export const DistrictAnalyticsPage: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {filteredDistricts.map((d) => {
-            const isSelected = selectedDistrict === d.district;
+            const isSelected = selectedDistrict === d.name;
 
             return (
               <div
-                key={d.district}
-                onClick={() => setSelectedDistrict(d.district)}
+                key={d.name}
+                onClick={() => setSelectedDistrict(d.name)}
                 className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
                   isSelected
                     ? 'bg-indigo-50/70 border-indigo-500 shadow-md ring-2 ring-indigo-500/30'
@@ -127,17 +135,19 @@ export const DistrictAnalyticsPage: React.FC = () => {
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-bold text-slate-900">{d.district}</h4>
+                  <h4 className="text-sm font-bold text-slate-900">{d.name}</h4>
                   <span
                     className={`text-xs font-extrabold font-['Space_Grotesk'] px-2 py-0.5 rounded ${
-                      d.avgDistressScore >= 60
+                      d.avgDistressScore === null
+                        ? 'bg-slate-100 text-slate-600'
+                        : d.avgDistressScore >= 60
                         ? 'bg-rose-100 text-rose-800'
                         : d.avgDistressScore >= 50
                         ? 'bg-amber-100 text-amber-800'
                         : 'bg-emerald-100 text-emerald-800'
                     }`}
                   >
-                    {d.avgDistressScore} / 100
+                    {d.avgDistressScore === null ? 'No data' : `${d.avgDistressScore} / 100`}
                   </span>
                 </div>
 
@@ -151,17 +161,17 @@ export const DistrictAnalyticsPage: React.FC = () => {
                     <strong className="text-rose-600">{d.highRiskCases}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Counsellors:</span>
-                    <strong className="text-slate-800">{d.assignedCounsellors} Officers</strong>
+                    <span className="text-slate-500">Counsellor Ratio:</span>
+                    <strong className="text-slate-800">{d.counsellorRatio}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Intervention Rate:</span>
-                    <strong className="text-emerald-700">{d.interventionRate}%</strong>
+                    <span className="text-slate-500">Completed Interventions:</span>
+                    <strong className="text-emerald-700">{d.interventionsCompleted}</strong>
                   </div>
                 </div>
 
                 <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400">Special Court Active</span>
+                  <span className="text-slate-400">API record</span>
                   <span className="font-bold text-indigo-700 flex items-center gap-0.5">
                     Select <ArrowRight className="w-3 h-3" />
                   </span>

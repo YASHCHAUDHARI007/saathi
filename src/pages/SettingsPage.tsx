@@ -11,7 +11,7 @@ import {
 import { useApp } from '../context/AppContext';
 
 export const SettingsPage: React.FC = () => {
-  const { userRole, setUserRole, userDistrict } = useApp();
+  const { userRole, setUserRole, userDistrict, isDemoMode } = useApp();
   const [criticalThreshold, setCriticalThreshold] = useState(80);
   const [highThreshold, setHighThreshold] = useState(60);
   const [slaMinutes, setSlaMinutes] = useState(30);
@@ -21,6 +21,7 @@ export const SettingsPage: React.FC = () => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isDemoMode) return;
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2000);
   };
@@ -42,14 +43,14 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-          MoSJE Governance Engine
+          Prototype configuration controls
         </span>
       </div>
 
       {savedSuccess && (
         <div className="p-4 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-2 text-xs font-semibold animate-fadeIn">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>System configuration parameters saved and updated across all district nodes.</span>
+          <span>Demo settings updated locally. No server configuration was changed.</span>
         </div>
       )}
 
@@ -78,7 +79,7 @@ export const SettingsPage: React.FC = () => {
               className="w-full accent-rose-600"
             />
             <p className="text-[11px] text-slate-500 mt-1">
-              Distress score above which immediate red-tier witness protection & emergency crisis teams are dispatched.
+              Proposed score above which a human protection review would be requested.
             </p>
           </div>
 
@@ -96,7 +97,7 @@ export const SettingsPage: React.FC = () => {
               className="w-full accent-amber-600"
             />
             <p className="text-[11px] text-slate-500 mt-1">
-              Triggers mandatory clinical counsellor review and fast-tracks relief disbursement.
+              Proposed threshold for a counsellor review; it does not initiate relief or dispatch actions.
             </p>
           </div>
 
@@ -128,11 +129,11 @@ export const SettingsPage: React.FC = () => {
             </h3>
           </div>
 
-          <div>
+          {isDemoMode ? <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Current Active Role</label>
             <select
               value={userRole}
-              onChange={(e) => setUserRole(e.target.value as any)}
+              onChange={(e) => setUserRole(e.target.value as typeof userRole)}
               className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-semibold bg-slate-50"
             >
               <option value="District Officer">District Officer ({userDistrict})</option>
@@ -140,25 +141,31 @@ export const SettingsPage: React.FC = () => {
               <option value="State Administrator">State Administrator (Maharashtra)</option>
               <option value="National Administrator">National Director (MoSJE HQ)</option>
             </select>
-          </div>
+          </div> : (
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700">
+              Signed-in role: <strong>{userRole}</strong> ({userDistrict || 'unassigned jurisdiction'}). Role changes require a new authenticated session.
+            </div>
+          )}
 
           <div className="space-y-3 pt-2">
             <label className="flex items-center justify-between text-xs font-semibold text-slate-700 cursor-pointer">
-              <span>High-Priority SMS Dispatch to On-Duty Police Squad</span>
+              <span>Proposed high-priority SMS notification</span>
               <input
                 type="checkbox"
                 checked={smsAlerts}
                 onChange={(e) => setSmsAlerts(e.target.checked)}
+                disabled={!isDemoMode}
                 className="w-4 h-4 text-indigo-600 rounded"
               />
             </label>
 
             <label className="flex items-center justify-between text-xs font-semibold text-slate-700 cursor-pointer">
-              <span>Instant NIC Email Digest to District Social Welfare Officer</span>
+              <span>Proposed email digest to assigned officers</span>
               <input
                 type="checkbox"
                 checked={emailAlerts}
                 onChange={(e) => setEmailAlerts(e.target.checked)}
+                disabled={!isDemoMode}
                 className="w-4 h-4 text-indigo-600 rounded"
               />
             </label>
@@ -167,10 +174,11 @@ export const SettingsPage: React.FC = () => {
           <div className="pt-4 border-t border-slate-200">
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+              disabled={!isDemoMode}
+              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
-              <span>Apply & Save System Configuration</span>
+              <span>{isDemoMode ? 'Apply Demo Configuration' : 'Settings API Not Available'}</span>
             </button>
           </div>
         </div>

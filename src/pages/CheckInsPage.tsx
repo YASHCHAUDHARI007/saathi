@@ -18,7 +18,7 @@ import { useApp } from '../context/AppContext';
 import { CommunicationChannel } from '../types';
 
 export const CheckInsPage: React.FC = () => {
-  const { cases, setShowCheckInSimulator } = useApp();
+  const { cases, setShowCheckInSimulator, isDemoMode, recordTotals } = useApp();
   const navigate = useNavigate();
 
   const [selectedChannel, setSelectedChannel] = useState<'All' | CommunicationChannel>('All');
@@ -26,7 +26,7 @@ export const CheckInsPage: React.FC = () => {
 
   // Collect all interactions across all cases
   const allInteractions = cases.flatMap((c) =>
-    c.recentInteractions.map((inter) => ({ ...inter, caseItem: c }))
+    c.interactions.map((inter) => ({ ...inter, caseItem: c }))
   );
 
   const filteredInteractions = allInteractions.filter((i) => {
@@ -41,12 +41,19 @@ export const CheckInsPage: React.FC = () => {
     return true;
   });
 
-  const channels: { channel: CommunicationChannel; label: string; icon: any; share: string; count: number }[] = [
-    { channel: 'Chatbot', label: 'Chatbot (WhatsApp / Web)', icon: Bot, share: '48%', count: 512 },
-    { channel: 'IVRS (Voice)', label: 'Automated IVRS Voice', icon: PhoneCall, share: '28%', count: 298 },
-    { channel: 'SMS', label: 'SMS Gateway', icon: MessageSquare, share: '14%', count: 149 },
-    { channel: 'Mobile App', label: 'Citizen Mobile App', icon: Smartphone, share: '10%', count: 108 },
+  const channelDefinitions: { channel: CommunicationChannel; label: string; icon: typeof Bot }[] = [
+    { channel: 'Chatbot', label: 'Chatbot (Web)', icon: Bot },
+    { channel: 'IVRS (Voice)', label: 'IVRS Voice', icon: PhoneCall },
+    { channel: 'SMS', label: 'SMS', icon: MessageSquare },
+    { channel: 'Mobile App', label: 'Citizen Mobile App', icon: Smartphone },
   ];
+  const channels = channelDefinitions.map((channel) => {
+    const count = allInteractions.filter((item) => item.channel === channel.channel).length;
+    const share = allInteractions.length > 0
+      ? `${Math.round((count / allInteractions.length) * 100)}%`
+      : '0%';
+    return { ...channel, count, share };
+  });
 
   return (
     <div className="space-y-6">
@@ -60,18 +67,18 @@ export const CheckInsPage: React.FC = () => {
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1 font-medium">
-            Ingestion of low-friction wellbeing pulses across WhatsApp, voice IVRS, SMS, and dedicated citizen apps.
+            Interaction records returned by the configured API for the cases on this page.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          {isDemoMode && <button
             onClick={() => setShowCheckInSimulator(true)}
             className="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <Sparkles className="w-4 h-4" />
             <span>Launch Check-in Simulator</span>
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -111,7 +118,7 @@ export const CheckInsPage: React.FC = () => {
               <div>
                 <h4 className="text-sm font-bold leading-snug">{ch.label}</h4>
                 <p className={`text-[11px] mt-1 ${isSelected ? 'text-indigo-100' : 'text-slate-500'}`}>
-                  {ch.count} Interactions this month
+                  {ch.count} loaded interactions
                 </p>
               </div>
             </div>
@@ -127,7 +134,7 @@ export const CheckInsPage: React.FC = () => {
               Interaction Signal Stream & Multi-Modal NLP Extract
             </h3>
             <span className="text-xs text-slate-500 font-semibold">
-              ({filteredInteractions.length} logs)
+              ({filteredInteractions.length} loaded logs of {recordTotals.interactions} accessible)
             </span>
           </div>
 

@@ -21,7 +21,7 @@ export const CheckInSimulatorModal: React.FC = () => {
   const [presetType, setPresetType] = useState<'threat' | 'anxiety' | 'positive' | 'custom'>('threat');
   const [customText, setCustomText] = useState('');
   const [isSimulating, setIsSimulating] = useState(false);
-  const [simulationResult, setSimulationResult] = useState<string | null>(null);
+  const [simulationResult, setSimulationResult] = useState<{ message: string; success: boolean } | null>(null);
 
   if (!showCheckInSimulator) return null;
 
@@ -73,9 +73,11 @@ export const CheckInSimulatorModal: React.FC = () => {
     },
   };
 
-  const handleSimulate = (e: React.FormEvent) => {
+  const handleSimulate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSimulating) return;
     setIsSimulating(true);
+    setSimulationResult(null);
 
     const data =
       presetType === 'custom'
@@ -85,38 +87,40 @@ export const CheckInSimulatorModal: React.FC = () => {
             sentiment: 'Neutral' as const,
             threatDetected: customText.toLowerCase().includes('threat') || customText.toLowerCase().includes('kill'),
             threatKeywords: customText.toLowerCase().includes('threat') ? ['threat'] : [],
-            voiceStressLevel: 'Normal' as const,
+            voiceStressLevel: 'Low' as const,
             distressDelta: customText.toLowerCase().includes('afraid') ? +6 : -2,
             aiSignals: ['Custom prompt evaluated by multi-modal NLP pipeline'],
           }
         : presets[presetType];
 
+    const processed = await addInteractionToCheckIn(selectedCaseId, {
+      timestamp: 'Just now (Simulated)',
+      channel,
+      prompt: data.prompt,
+      victimResponse: data.response,
+      sentiment: data.sentiment,
+      threatDetected: data.threatDetected,
+      threatKeywords: data.threatKeywords,
+      voiceStressLevel: data.voiceStressLevel,
+      distressDelta: data.distressDelta,
+      aiSignals: data.aiSignals,
+    });
+
+    setIsSimulating(false);
+    if (!processed) {
+      setSimulationResult({ message: 'The demo interaction was not processed. Confirm that backend simulator endpoints are explicitly enabled.', success: false });
+      return;
+    }
+
+    setSimulationResult({
+      message: `Demo interaction processed for ${selectedCaseId}. The returned case state has been applied.`,
+      success: true,
+    });
+
     setTimeout(() => {
-      addInteractionToCheckIn(selectedCaseId, {
-        timestamp: 'Just now (Simulated)',
-        channel,
-        prompt: data.prompt,
-        victimResponse: data.response,
-        sentiment: data.sentiment,
-        threatDetected: data.threatDetected,
-        threatKeywords: data.threatKeywords,
-        voiceStressLevel: data.voiceStressLevel,
-        distressDelta: data.distressDelta,
-        aiSignals: data.aiSignals,
-      });
-
-      setIsSimulating(false);
-      setSimulationResult(
-        `Interaction successfully processed for ${selectedCaseId}! Dynamic Distress Score updated by ${
-          data.distressDelta > 0 ? '+' : ''
-        }${data.distressDelta} pts.`
-      );
-
-      setTimeout(() => {
-        setSimulationResult(null);
-        setShowCheckInSimulator(false);
-      }, 2000);
-    }, 800);
+      setSimulationResult(null);
+      setShowCheckInSimulator(false);
+    }, 2000);
   };
 
   return (
@@ -131,7 +135,7 @@ export const CheckInSimulatorModal: React.FC = () => {
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Live Multi-Modal Check-in Simulator</h3>
+              <h3 className="text-base font-bold text-white">Demo Multi-Modal Check-in Simulator</h3>
               <p className="text-xs text-slate-300">Simulate incoming victim responses & watch dynamic AI scoring</p>
             </div>
           </div>
@@ -228,9 +232,9 @@ export const CheckInSimulatorModal: React.FC = () => {
           )}
 
           {simulationResult && (
-            <div className="p-3 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-2 text-xs font-semibold">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              {simulationResult}
+            <div className={`p-3 rounded-lg border flex items-center gap-2 text-xs font-semibold ${simulationResult.success ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200'}`}>
+              {simulationResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />}
+              {simulationResult.message}
             </div>
           )}
 
@@ -251,7 +255,7 @@ export const CheckInSimulatorModal: React.FC = () => {
                 'Processing Multi-Modal Signals...'
               ) : (
                 <>
-                  <Send className="w-3.5 h-3.5" /> Dispatch & Recalculate Distress
+                  <Send className="w-3.5 h-3.5" /> Submit Demo Interaction
                 </>
               )}
             </button>

@@ -46,10 +46,34 @@ import {
   Navigation,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { PRIMARY_DEMO_CASE_ID } from '../data/mockData';
+import { PRIMARY_DEMO_CASE_ID } from '../config/runtime';
 
 type Language = 'en' | 'hi' | 'mr';
 type MobileTab = 'pulse' | 'case' | 'care' | 'grounding';
+
+const SOS_STORAGE_PREFIX = 'saathi.sos.pending.';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const getPendingSosKey = (caseId: string): string => {
+  const generatedKey = crypto.randomUUID();
+  try {
+    const storageKey = `${SOS_STORAGE_PREFIX}${encodeURIComponent(caseId)}`;
+    const storedKey = window.sessionStorage.getItem(storageKey);
+    if (storedKey && UUID_PATTERN.test(storedKey)) return storedKey;
+    window.sessionStorage.setItem(storageKey, generatedKey);
+  } catch {
+    // The in-memory key still protects a single open page when storage is unavailable.
+  }
+  return generatedKey;
+};
+
+const clearPendingSosKey = (caseId: string): void => {
+  try {
+    window.sessionStorage.removeItem(`${SOS_STORAGE_PREFIX}${encodeURIComponent(caseId)}`);
+  } catch {
+    // A confirmed request remains complete even when browser storage is unavailable.
+  }
+};
 
 interface TranslationMap {
   [key: string]: {
@@ -81,9 +105,9 @@ const translations: TranslationMap = {
     mr: 'धोका / तातडीची मदत',
   },
   sosDescription: {
-    en: 'Immediate threat dispatch to Police Special Cell & Assigned Escort.',
-    hi: 'पुलिस विशेष सेल और सुरक्षा दल को तुरंत आपातकालीन सूचना।',
-    mr: 'पोलीस स्पेशल सेल व सुरक्षा पथकाला तात्काळ अलर्ट.',
+    en: 'Records an emergency request for review. Call 112 if danger is immediate.',
+    hi: 'समीक्षा के लिए आपात अनुरोध दर्ज करता है। तत्काल खतरे में 112 पर कॉल करें।',
+    mr: 'पुनरावलोकनासाठी आपत्कालीन विनंती नोंदवते. तातडीच्या धोक्यात 112 वर कॉल करा.',
   },
   todayPulse: {
     en: "Today's Wellbeing Check-in",
@@ -133,34 +157,27 @@ const translations: TranslationMap = {
 };
 
 export const VictimDashboardPage: React.FC = () => {
-  const { getCaseById, addInteractionToCheckIn, triggerVictimSOS, setUserRole } = useApp();
+  const { getCaseById, cases, addInteractionToCheckIn, triggerVictimSOS, isDemoMode } = useApp();
   const navigate = useNavigate();
 
-  const caseData = getCaseById(PRIMARY_DEMO_CASE_ID) || {
-    id: PRIMARY_DEMO_CASE_ID,
-    victimAnonymousId: 'SUB-88194',
-    district: 'Pune Rural',
-    caseType: 'Atrocities against SC/ST',
-    currentStage: 'Trial',
-    distressScore: 84,
-    assignedCounsellor: 'Dr. Sunita Deshmukh',
-    counsellorPhone: '+91 98231 44550',
-    firNumber: 'FIR-2026/041 (Khed PS)',
-  };
-
   const [lang, setLang] = useState<Language>('en');
+  const [selectedCaseId, setSelectedCaseId] = useState<string>(isDemoMode ? PRIMARY_DEMO_CASE_ID : '');
   const [activeMobileTab, setActiveMobileTab] = useState<MobileTab>('pulse');
   const [viewMode, setViewMode] = useState<'responsive' | 'mobile_frame'>('responsive');
   const [isCamouflageActive, setIsCamouflageActive] = useState<boolean>(false);
-  const [selectedMood, setSelectedMood] = useState<string>('Anxious');
+  const [selectedMood, setSelectedMood] = useState<string>(isDemoMode ? 'Anxious' : 'Okay');
   const [checkInText, setCheckInText] = useState<string>('');
-  const [checkInTags, setCheckInTags] = useState<string[]>(['Legal stress', 'Trouble sleeping']);
+  const [checkInTags, setCheckInTags] = useState<string[]>(isDemoMode ? ['Legal stress', 'Trouble sleeping'] : []);
   const [isVoiceRecording, setIsVoiceRecording] = useState<boolean>(false);
   const [voiceSeconds, setVoiceSeconds] = useState<number>(0);
   const [hasSubmittedCheckIn, setHasSubmittedCheckIn] = useState<boolean>(false);
   const [isSosModalOpen, setIsSosModalOpen] = useState<boolean>(false);
   const [sosSent, setSosSent] = useState<boolean>(false);
+  const [sosSubmitting, setSosSubmitting] = useState<boolean>(false);
+  const [sosMessage, setSosMessage] = useState<string>('');
+  const [sosError, setSosError] = useState<string>('');
   const [sosLocationShared, setSosLocationShared] = useState<boolean>(true);
+  const [sosIdempotencyKey, setSosIdempotencyKey] = useState<string>('');
   const [breathingStep, setBreathingStep] = useState<'Inhale' | 'Hold' | 'Exhale'>('Inhale');
   const [breathingCount, setBreathingCount] = useState<number>(4);
   const [isBreathingActive, setIsBreathingActive] = useState<boolean>(false);
@@ -175,7 +192,19 @@ export const VictimDashboardPage: React.FC = () => {
   ]);
   const [newChatMessage, setNewChatMessage] = useState<string>('');
 
+  const caseData = isDemoMode
+    ? getCaseById(PRIMARY_DEMO_CASE_ID)
+    : cases.find((caseItem) => caseItem.id === selectedCaseId) ?? (cases.length === 1 ? cases[0] : undefined);
+
   const t = (key: string) => translations[key]?.[lang] || translations[key]?.['en'] || key;
+
+  useEffect(() => {
+    setSelectedCaseId((currentCaseId) => {
+      if (isDemoMode) return PRIMARY_DEMO_CASE_ID;
+      if (currentCaseId && cases.some((caseItem) => caseItem.id === currentCaseId)) return currentCaseId;
+      return cases.length === 1 ? cases[0].id : '';
+    });
+  }, [cases, isDemoMode]);
 
   // Breathing timer
   useEffect(() => {
@@ -255,9 +284,10 @@ export const VictimDashboardPage: React.FC = () => {
     }
   };
 
-  const handleSubmitCheckIn = (e: React.FormEvent) => {
+  const handleSubmitCheckIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!checkInText.trim() && checkInTags.length === 0) return;
+    if (!isDemoMode) return;
+    if (!caseData || (!checkInText.trim() && checkInTags.length === 0)) return;
 
     const isThreatRelated =
       checkInTags.includes('Received threat/warning') ||
@@ -271,7 +301,7 @@ export const VictimDashboardPage: React.FC = () => {
       ? 5
       : -4;
 
-    addInteractionToCheckIn(caseData.id, {
+    const recorded = await addInteractionToCheckIn(caseData.id, {
       timestamp: 'Just now',
       channel: 'Mobile App',
       prompt: 'Daily Citizen Mobile Wellbeing Pulse',
@@ -285,28 +315,59 @@ export const VictimDashboardPage: React.FC = () => {
       audioDurationSeconds: voiceSeconds > 0 ? voiceSeconds : undefined,
     });
 
-    setHasSubmittedCheckIn(true);
+    setHasSubmittedCheckIn(recorded);
     setTimeout(() => {
       setCheckInText('');
     }, 2000);
   };
 
-  const handleTriggerSos = () => {
-    triggerVictimSOS(
-      caseData.id,
-      'EMERGENCY CITIZEN SOS: Anjali Gaikwad triggered one-touch emergency alarm from Mobile SAATHI App. Suspected intimidation / threat near residence.',
-      sosLocationShared ? 'Khed Taluka, Pune Rural (Lat: 18.8472, Long: 73.8921)' : 'Location Hidden by User'
-    );
-    setSosSent(true);
-    setTimeout(() => {
-      setIsSosModalOpen(false);
-      setSosSent(false);
-    }, 3000);
+  const handleTriggerSos = async () => {
+    if (!caseData || sosSubmitting) return;
+    const idempotencyKey = sosIdempotencyKey || getPendingSosKey(caseData.id);
+    if (!sosIdempotencyKey) setSosIdempotencyKey(idempotencyKey);
+    setSosSubmitting(true);
+    setSosError('');
+    setSosMessage('');
+    try {
+      const result = await triggerVictimSOS(
+        caseData.id,
+        'Citizen submitted a one-touch emergency SOS request from the SAATHI portal.',
+        idempotencyKey,
+        sosLocationShared ? 'Location sharing requested; coordinates were not captured by this prototype.' : 'Location not shared by user',
+      );
+      clearPendingSosKey(caseData.id);
+      setSosIdempotencyKey('');
+      setSosMessage(result.message);
+      setSosSent(true);
+    } catch (error) {
+      setSosError(error instanceof Error ? error.message : 'The SOS request could not be recorded. Call 112 if you are in immediate danger.');
+    } finally {
+      setSosSubmitting(false);
+    }
+  };
+
+  const openSosModal = () => {
+    if (!caseData) return;
+    setSosSent(false);
+    setSosMessage('');
+    setSosError('');
+    setSosLocationShared(true);
+    setSosIdempotencyKey(getPendingSosKey(caseData.id));
+    setIsSosModalOpen(true);
+  };
+
+  const closeSosModal = () => {
+    if (sosSubmitting) return;
+    setIsSosModalOpen(false);
+    setSosSent(false);
+    setSosMessage('');
+    setSosError('');
+    setSosIdempotencyKey('');
   };
 
   const handleSendChatMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newChatMessage.trim()) return;
+    if (!isDemoMode || !newChatMessage.trim()) return;
 
     const userMsg = {
       sender: 'victim' as const,
@@ -322,12 +383,51 @@ export const VictimDashboardPage: React.FC = () => {
         ...prev,
         {
           sender: 'counsellor',
-          text: 'Thank you for sharing, Anjali ji. I have noted this. I am notifying Head Constable Pawar to ensure police patrol is stationed near your lane today. Please remember to take deep breaths.',
+          text: 'Demo reply only: your message was added to this local prototype conversation. No counsellor or emergency service was contacted.',
           time: 'Just now',
         },
       ]);
     }, 1200);
   };
+
+  if (!caseData && !isDemoMode && cases.length > 1) {
+    return (
+      <div className="max-w-xl mx-auto p-6 sm:p-8 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-lg font-bold text-slate-900">Choose the case you need support for</h2>
+          <p className="text-xs text-slate-600">
+            This account has more than one accessible case. Select the correct case before viewing details or recording an SOS request.
+          </p>
+        </div>
+        <label className="block text-xs font-bold text-slate-700" htmlFor="victim-case-selection">
+          Case
+        </label>
+        <select
+          id="victim-case-selection"
+          value={selectedCaseId}
+          onChange={(event) => setSelectedCaseId(event.target.value)}
+          className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm font-medium text-slate-900"
+        >
+          <option value="">Select a case</option>
+          {cases.map((caseItem) => (
+            <option key={caseItem.id} value={caseItem.id}>
+              {caseItem.id} — {caseItem.currentStage} — {caseItem.district}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  if (!caseData) {
+    return (
+      <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 space-y-3">
+        <h2 className="text-lg font-bold text-slate-900">No citizen case is assigned</h2>
+        <p className="text-xs text-slate-600">The authenticated account does not currently have an accessible case record.</p>
+        <button type="button" onClick={() => navigate('/dashboard')} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold">Return to dashboard</button>
+      </div>
+    );
+  }
 
   // =========================================================================
   // CAMOUFLAGE / STEALTH MODE VIEW
@@ -407,7 +507,7 @@ export const VictimDashboardPage: React.FC = () => {
           </div>
 
           <button
-            onClick={() => setIsSosModalOpen(true)}
+            onClick={openSosModal}
             className="shrink-0 h-12 sm:h-14 px-4 sm:px-6 rounded-2xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg shadow-rose-950 flex items-center justify-center gap-2 cursor-pointer transition-all animate-pulse"
           >
             <ShieldAlert className="w-5 h-5 text-white" />
@@ -427,27 +527,30 @@ export const VictimDashboardPage: React.FC = () => {
             <div className="flex items-center gap-1.5">
               <span className="font-mono font-bold text-slate-900">{caseData.victimAnonymousId}</span>
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
-                Active Trial
+                {caseData.currentStage}
               </span>
             </div>
-            <span className="text-[10px] text-slate-500">{caseData.district} • {caseData.firNumber}</span>
+            <span className="text-[10px] text-slate-500">{caseData.district}{caseData.firNumber ? ` • ${caseData.firNumber}` : ''}</span>
           </div>
         </div>
 
         <div className="text-right">
           <span className="text-[10px] font-bold text-slate-400 block uppercase">Counsellor</span>
-          <span className="font-bold text-indigo-700 text-xs">{caseData.assignedCounsellor.split(' ')[1] || 'Assigned'}</span>
+          <span className="font-bold text-indigo-700 text-xs">{caseData.assignedCounsellor || 'Unassigned'}</span>
         </div>
       </div>
 
       {/* 3. MOBILE TAB NAVIGATION BAR (TOUCH FRIENDLY) */}
       <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/70 rounded-2xl border border-slate-300/60 text-xs font-bold">
-        {[
+        {(isDemoMode ? [
           { id: 'pulse' as MobileTab, label: 'Pulse', icon: Sparkles },
           { id: 'case' as MobileTab, label: 'Case & DBT', icon: Scale },
           { id: 'care' as MobileTab, label: 'Care Team', icon: HeartHandshake },
           { id: 'grounding' as MobileTab, label: 'Grounding', icon: Heart },
-        ].map((tab) => {
+        ] : [
+          { id: 'pulse' as MobileTab, label: 'Case support', icon: Sparkles },
+          { id: 'grounding' as MobileTab, label: 'Grounding', icon: Heart },
+        ]).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeMobileTab === tab.id;
           return (
@@ -484,7 +587,7 @@ export const VictimDashboardPage: React.FC = () => {
               </div>
             </div>
             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Encrypted
+              Privacy controls pending review
             </span>
           </div>
 
@@ -501,7 +604,8 @@ export const VictimDashboardPage: React.FC = () => {
                 key={m.label}
                 type="button"
                 onClick={() => setSelectedMood(m.label)}
-                className={`min-h-[52px] p-2 rounded-2xl border transition-all text-xs font-semibold cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                disabled={!isDemoMode}
+                className={`min-h-[52px] p-2 rounded-2xl border transition-all text-xs font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 flex flex-col items-center justify-center gap-0.5 ${
                   selectedMood === m.label ? `${m.active} ring-2 ring-indigo-500/30` : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
                 }`}
               >
@@ -531,7 +635,8 @@ export const VictimDashboardPage: React.FC = () => {
                     key={tag}
                     type="button"
                     onClick={() => handleToggleTag(tag)}
-                    className={`min-h-[32px] px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${
+                    disabled={!isDemoMode}
+                    className={`min-h-[32px] px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 border ${
                       isSelected
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                         : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
@@ -546,10 +651,16 @@ export const VictimDashboardPage: React.FC = () => {
 
           {/* Voice Pulse Audio & Vernacular Text Input */}
           <form onSubmit={handleSubmitCheckIn} className="space-y-3 pt-1">
+            {!isDemoMode && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                Wellbeing check-in submission is not configured for this deployment. The form is read-only; use the listed helplines or call 112 for immediate danger.
+              </div>
+            )}
             <div className="relative">
               <textarea
                 value={checkInText}
                 onChange={(e) => setCheckInText(e.target.value)}
+                disabled={!isDemoMode}
                 placeholder={
                   lang === 'mr'
                     ? 'येथे लिहा किंवा मराठीत बोला (व्हॉईस नोट)...'
@@ -558,13 +669,14 @@ export const VictimDashboardPage: React.FC = () => {
                     : 'Type confidentially or record vernacular voice note...'
                 }
                 rows={3}
-                className="w-full p-3 pr-14 text-xs rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500 text-slate-800 font-medium leading-relaxed"
+                className="w-full p-3 pr-14 text-xs rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500 text-slate-800 font-medium leading-relaxed disabled:cursor-not-allowed disabled:opacity-60"
               />
 
               {/* Touch Big Microphone Button (Min 44px touch target) */}
               <button
                 type="button"
                 onClick={handleVoiceRecordToggle}
+                disabled={!isDemoMode}
                 className={`absolute right-2.5 bottom-2.5 w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                   isVoiceRecording
                     ? 'bg-rose-600 text-white animate-pulse shadow-md'
@@ -601,12 +713,13 @@ export const VictimDashboardPage: React.FC = () => {
             <div className="flex items-center justify-between gap-2 pt-1">
               <span className="text-[10px] text-slate-400 flex items-center gap-1 truncate">
                 <Lock className="w-3 h-3 text-emerald-600 shrink-0" />
-                Reviewed by Dr. Sunita Deshmukh
+                {isDemoMode ? 'Demo check-in workflow' : 'Submission integration pending'}
               </span>
 
               <button
                 type="submit"
-                className="min-h-[40px] px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                disabled={!isDemoMode}
+                className="min-h-[40px] px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Submit</span>
@@ -616,7 +729,7 @@ export const VictimDashboardPage: React.FC = () => {
             {hasSubmittedCheckIn && (
               <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Check-in received securely. Care team notified.</span>
+                <span>Check-in recorded by the configured API. Care-team delivery is not confirmed by this screen.</span>
               </div>
             )}
           </form>
@@ -624,7 +737,7 @@ export const VictimDashboardPage: React.FC = () => {
       )}
 
       {/* ----------------- TAB B: CASE PROGRESSION & DBT TRACKER ----------------- */}
-      {activeMobileTab === 'case' && (
+      {isDemoMode && activeMobileTab === 'case' && (
         <div className="space-y-4 animate-fadeIn">
           {/* Next Court Milestone Card */}
           <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-3">
@@ -750,7 +863,7 @@ export const VictimDashboardPage: React.FC = () => {
       )}
 
       {/* ----------------- TAB C: CARE TEAM & 1-TAP CONTACTS ----------------- */}
-      {activeMobileTab === 'care' && (
+      {isDemoMode && activeMobileTab === 'care' && (
         <div className="space-y-4 animate-fadeIn">
           <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
@@ -781,12 +894,12 @@ export const VictimDashboardPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <button
+                  {isDemoMode && <button
                     onClick={() => setShowDirectChatModal(true)}
                     className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 border border-slate-200 text-xs font-bold transition-colors cursor-pointer"
                   >
                     Chat
-                  </button>
+                  </button>}
                   <a
                     href="tel:+919823144550"
                     className="min-h-[40px] px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors flex items-center gap-1"
@@ -979,7 +1092,7 @@ export const VictimDashboardPage: React.FC = () => {
               </h2>
               <span className="hidden sm:inline-flex text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 items-center gap-1">
                 <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                256-bit Encrypted
+                Prototype privacy review pending
               </span>
             </div>
             <p className="text-[10px] sm:text-xs text-slate-500 truncate">{t('portalSubtitle')}</p>
@@ -1027,16 +1140,36 @@ export const VictimDashboardPage: React.FC = () => {
           </button>
 
           {/* Camouflage Stealth Button */}
-          <button
+          {isDemoMode && <button
             onClick={() => setIsCamouflageActive(true)}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-slate-200 text-[11px] font-bold border border-slate-700 transition-colors shadow-xs cursor-pointer"
             title="Disguises this page as weather report"
           >
             <EyeOff className="w-3.5 h-3.5 text-amber-400" />
             <span className="hidden sm:inline">{t('quickExit')}</span>
-          </button>
+          </button>}
         </div>
       </div>
+
+      {!isDemoMode && cases.length > 1 && (
+        <div className="max-w-2xl mx-auto rounded-2xl border border-indigo-200 bg-indigo-50 p-3.5">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-indigo-800 mb-1.5" htmlFor="active-victim-case">
+            Active case
+          </label>
+          <select
+            id="active-victim-case"
+            value={selectedCaseId}
+            onChange={(event) => setSelectedCaseId(event.target.value)}
+            className="w-full rounded-xl border border-indigo-200 bg-white p-2.5 text-xs font-bold text-slate-900"
+          >
+            {cases.map((caseItem) => (
+              <option key={caseItem.id} value={caseItem.id}>
+                {caseItem.id} — {caseItem.currentStage} — {caseItem.district}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* RENDER VIEW: EITHER NATIVE RESPONSIVE OR SMARTPHONE FRAME SIMULATOR */}
       {viewMode === 'mobile_frame' ? (
@@ -1078,13 +1211,17 @@ export const VictimDashboardPage: React.FC = () => {
                 Confirm Emergency SOS Alert?
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                This will immediately dispatch a <strong>Witness Protection PCR Van</strong> and notify the <strong>Pune Rural SP Special Atrocity Cell</strong>.
+                This submits an SOS request to the configured SAATHI backend. It does <strong>not</strong> confirm police or ambulance dispatch. Call <strong>112</strong> if danger is immediate.
               </p>
             </div>
 
             <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-left text-xs space-y-1.5 text-rose-950 font-medium">
+              <div className="flex items-center justify-between gap-3">
+                <span>Case receiving this SOS:</span>
+                <strong className="font-mono text-right">{caseData.id}</strong>
+              </div>
               <div className="flex items-center justify-between">
-                <span>Share Live GPS Location:</span>
+                <span>Request location sharing:</span>
                 <input
                   type="checkbox"
                   checked={sosLocationShared}
@@ -1093,33 +1230,53 @@ export const VictimDashboardPage: React.FC = () => {
                 />
               </div>
               <p className="text-[10px] text-rose-800">
-                Location: Khed Taluka, Pune (Auto-detected via GPS)
+                This prototype does not capture verified GPS coordinates.
               </p>
             </div>
 
             {sosSent ? (
-              <div className="p-3 rounded-2xl bg-emerald-600 text-white text-xs font-bold flex items-center justify-center gap-2 animate-fadeIn">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>ALERT SENT! Police Unit Dispatched.</span>
+              <div className="space-y-3">
+                <div className="p-3 rounded-2xl bg-emerald-600 text-white text-xs font-bold flex items-center justify-center gap-2 animate-fadeIn">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{sosMessage}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={closeSosModal}
+                    className="min-h-[44px] flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-100"
+                  >
+                    Close
+                  </button>
+                  <a
+                    href="tel:112"
+                    className="min-h-[44px] flex-1 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-black flex items-center justify-center"
+                  >
+                    Call 112
+                  </a>
+                </div>
               </div>
             ) : (
               <div className="flex items-center gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setIsSosModalOpen(false)}
-                  className="min-h-[44px] flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-100 transition-colors cursor-pointer"
+                  onClick={closeSosModal}
+                  disabled={sosSubmitting}
+                  className="min-h-[44px] flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  onClick={handleTriggerSos}
-                  className="min-h-[44px] flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-rose-900/30 cursor-pointer"
+                  onClick={() => void handleTriggerSos()}
+                  disabled={sosSubmitting}
+                  className="min-h-[44px] flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-rose-900/30 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  CONFIRM SOS
+                  {sosSubmitting ? 'RECORDING…' : 'RECORD SOS'}
                 </button>
               </div>
             )}
+            {sosError && <div role="alert" className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">{sosError}</div>}
           </div>
         </div>
       )}
@@ -1139,7 +1296,7 @@ export const VictimDashboardPage: React.FC = () => {
                   <h4 className="text-xs font-bold">Dr. Sunita Deshmukh</h4>
                   <span className="text-[10px] text-emerald-400 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Confidential Support Online
+                    Demo conversation only
                   </span>
                 </div>
               </div>
@@ -1182,11 +1339,13 @@ export const VictimDashboardPage: React.FC = () => {
                 type="text"
                 value={newChatMessage}
                 onChange={(e) => setNewChatMessage(e.target.value)}
-                placeholder="Type message confidentially..."
+                placeholder={isDemoMode ? 'Type a demo message…' : 'Messaging is not configured'}
+                disabled={!isDemoMode}
                 className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
               <button
                 type="submit"
+                disabled={!isDemoMode}
                 className="w-9 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
               >
                 <Send className="w-4 h-4" />

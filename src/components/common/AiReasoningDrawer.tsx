@@ -16,7 +16,7 @@ import { useApp } from '../../context/AppContext';
 import { RiskBadge } from './RiskBadge';
 
 export const AiReasoningDrawer: React.FC = () => {
-  const { activeReasoningCase, closeReasoningDrawer, acknowledgeAlert, userRole } = useApp();
+  const { activeReasoningCase, closeReasoningDrawer, userRole, isDemoMode } = useApp();
   const [officerReviewNotes, setOfficerReviewNotes] = useState('');
   const [reviewedSuccess, setReviewedSuccess] = useState(false);
 
@@ -26,6 +26,7 @@ export const AiReasoningDrawer: React.FC = () => {
 
   const handleReviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isDemoMode) return;
     setReviewedSuccess(true);
     setTimeout(() => {
       setReviewedSuccess(false);
@@ -219,7 +220,9 @@ export const AiReasoningDrawer: React.FC = () => {
               </h4>
             </div>
             <p className="text-xs text-slate-600 mb-3">
-              Government protocol requires the assigned {userRole} to verify AI reasoning and log clinical/protective action.
+              {isDemoMode
+                ? `Demo workflow for a ${userRole} to review the displayed factors. No server audit record is created.`
+                : 'Human-review persistence is not configured. This form is read-only until an audited backend endpoint is available.'}
             </p>
 
             <form onSubmit={handleReviewSubmit} className="space-y-3">
@@ -233,20 +236,20 @@ export const AiReasoningDrawer: React.FC = () => {
 
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                  <Lock className="w-3 h-3 text-slate-400" /> Audit logged to NIC Cloud
+                  <Lock className="w-3 h-3 text-slate-400" /> {isDemoMode ? 'Local demo note only' : 'Server persistence pending'}
                 </span>
 
                 <button
                   type="submit"
-                  disabled={reviewedSuccess}
+                  disabled={reviewedSuccess || !isDemoMode}
                   className="px-4 py-2 text-xs font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {reviewedSuccess ? (
                     <>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" /> Review Recorded
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" /> Demo Note Captured
                     </>
                   ) : (
-                    'Record Human Review & Verification'
+                    isDemoMode ? 'Capture Demo Review Note' : 'Review API Not Configured'
                   )}
                 </button>
               </div>

@@ -43,7 +43,6 @@ import { useApp } from '../context/AppContext';
 import { KpiCard } from '../components/common/KpiCard';
 import { RiskBadge, PriorityBadge, StageBadge } from '../components/common/RiskBadge';
 import { SystemWorkflowFeedbackLoop } from '../components/common/SystemWorkflowFeedbackLoop';
-import { mockPopulationDistressTrend30D } from '../data/mockData';
 
 export const DashboardPage: React.FC = () => {
   const {
@@ -53,18 +52,58 @@ export const DashboardPage: React.FC = () => {
     setFilters,
     openReasoningDrawer,
     setShowCheckInSimulator,
+    isDemoMode,
+    usesMockApi,
+    recordTotals,
   } = useApp();
 
   const navigate = useNavigate();
   const [trendRange, setTrendRange] = useState<'7D' | '30D' | '90D' | '1Y'>('30D');
 
-  // Risk distribution data
+  const loadedCaseCount = cases.length;
+  const totalCases = recordTotals.cases;
+  const monitoredCases = cases.filter((item) => item.monitoringStatus !== 'Dormant').length;
+  const riskCounts = {
+    LOW: cases.filter((item) => item.riskLevel === 'LOW').length,
+    MODERATE: cases.filter((item) => item.riskLevel === 'MODERATE').length,
+    HIGH: cases.filter((item) => item.riskLevel === 'HIGH').length,
+    CRITICAL: cases.filter((item) => item.riskLevel === 'CRITICAL').length,
+  };
+  const highRiskCount = riskCounts.HIGH + riskCounts.CRITICAL;
+  const interventions = cases.flatMap((item) => item.interventions);
+  const loadedInterventionCount = interventions.length;
+  const interventionCount = recordTotals.interventions;
+  const completedInterventions = interventions.filter((item) => item.status === 'Completed').length;
+  const followUpsDue = cases.reduce((total, item) => total + item.missedFollowUps, 0);
+  const percentage = (count: number) => loadedCaseCount > 0 ? Math.round((count / loadedCaseCount) * 100) : 0;
+
   const riskPieData = [
-    { name: 'Low Risk', value: 68, color: '#10b981', count: 873 },
-    { name: 'Moderate Risk', value: 21, color: '#f59e0b', count: 269 },
-    { name: 'High Risk', value: 8, color: '#f97316', count: 103 },
-    { name: 'Critical Risk', value: 3, color: '#e11d48', count: 39 },
+    { name: 'Low Risk', value: percentage(riskCounts.LOW), color: '#10b981', count: riskCounts.LOW },
+    { name: 'Moderate Risk', value: percentage(riskCounts.MODERATE), color: '#f59e0b', count: riskCounts.MODERATE },
+    { name: 'High Risk', value: percentage(riskCounts.HIGH), color: '#f97316', count: riskCounts.HIGH },
+    { name: 'Critical Risk', value: percentage(riskCounts.CRITICAL), color: '#e11d48', count: riskCounts.CRITICAL },
   ];
+
+  const trajectoryByDate = new Map<string, { total: number; count: number; highRiskCases: number }>();
+  cases.forEach((caseItem) => caseItem.longitudinalTrajectory.forEach((point) => {
+    if (!point.date) return;
+    const current = trajectoryByDate.get(point.date) ?? { total: 0, count: 0, highRiskCases: 0 };
+    current.total += point.distressScore;
+    current.count += 1;
+    if (point.distressScore >= 60) current.highRiskCases += 1;
+    trajectoryByDate.set(point.date, current);
+  }));
+  const selectedPointCount = trendRange === '7D' ? 7 : trendRange === '30D' ? 30 : trendRange === '90D' ? 90 : 365;
+  const interventionRate = loadedInterventionCount > 0 ? Math.round((completedInterventions / loadedInterventionCount) * 100) : 0;
+  const populationTrend = [...trajectoryByDate.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .slice(-selectedPointCount)
+    .map(([date, aggregate]) => ({
+      date,
+      avgDistress: Math.round(aggregate.total / aggregate.count),
+      highRiskCases: aggregate.highRiskCases,
+      interventionRate,
+    }));
 
   // Cases requiring attention (sorted by highest distress and P1 priority)
   const prioritizedCases = [...cases]
@@ -86,44 +125,44 @@ export const DashboardPage: React.FC = () => {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 flex items-center gap-1.5">
                 <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
-                Live Monitoring Engine Active
+                {usesMockApi ? 'Explicit local mock dataset' : 'Connected backend view'}
               </span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                MoSJE • SIH PS-26094
+                SIH Prototype • PS-26094
               </span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-emerald-400" /> DPDP Act 2023 Compliant
+                <ShieldCheck className="w-3 h-3 text-amber-300" /> Compliance review pending
               </span>
             </div>
 
             <h1 className="text-xl lg:text-2xl font-black tracking-tight text-white font-['Space_Grotesk'] leading-tight">
-              AI-Powered Dynamic Distress Prediction & Victim Wellbeing
+              Scoped Victim Wellbeing Monitoring & Case Coordination
             </h1>
 
             <p className="text-xs text-slate-300 leading-relaxed max-w-2xl font-normal">
-              Answering key operational questions in seconds: <strong className="text-indigo-200">Condition:</strong> 42 High/Critical cases under elevated psychological strain • <strong className="text-indigo-200">Trend:</strong> Longitudinal velocity (+14 pts) concentrates 72h prior to court hearings • <strong className="text-indigo-200">Action:</strong> 37 multi-agency interventions due for human review today.
+              Accessible totals: <strong className="text-indigo-200">Cases:</strong> {totalCases} • <strong className="text-indigo-200">Interventions:</strong> {interventionCount}. The risk and unread-alert breakdowns below describe the currently loaded API page.
             </p>
           </div>
 
           <div className="pt-5 mt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 relative z-10">
             <div className="flex items-center gap-4 text-xs text-slate-300">
               <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Monitored Cohort</span>
-                <span className="font-extrabold text-white font-['Space_Grotesk'] text-sm">1,284 Subjects</span>
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Accessible Cases</span>
+                <span className="font-extrabold text-white font-['Space_Grotesk'] text-sm">{totalCases.toLocaleString()} Records</span>
               </div>
               <div className="h-6 w-px bg-slate-800" />
               <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Unread Alerts</span>
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Unread (Loaded Page)</span>
                 <span className="font-extrabold text-rose-400 font-['Space_Grotesk'] text-sm">{unreadAlertsCount} Urgent</span>
               </div>
               <div className="h-6 w-px bg-slate-800 hidden sm:block" />
               <div className="hidden sm:block">
                 <span className="text-slate-400 block text-[10px] uppercase font-bold">Distress Model</span>
-                <span className="font-extrabold text-emerald-400 font-['Space_Grotesk'] text-sm">v3.4 Multi-Modal</span>
+                <span className="font-extrabold text-amber-300 font-['Space_Grotesk'] text-sm">Prototype scoring</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            {isDemoMode && <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 onClick={() => navigate('/cases/ATC-2026-10482')}
                 className="w-full sm:w-auto px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer group"
@@ -131,7 +170,7 @@ export const DashboardPage: React.FC = () => {
                 <span>Demo Case (ATC-2026-10482)</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </button>
-            </div>
+            </div>}
           </div>
         </div>
 
@@ -148,15 +187,17 @@ export const DashboardPage: React.FC = () => {
                 </h3>
               </div>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                4 Streams Online
+                {isDemoMode ? 'Illustrative feeds' : 'Health API pending'}
               </span>
             </div>
 
             <p className="text-xs text-slate-500 mb-3 leading-relaxed">
-              Passive & active telemetry parsed by NLP sentiment and acoustic stress models:
+              {isDemoMode
+                ? 'Illustrative multi-channel signal examples for the prototype:'
+                : 'The backend does not currently expose verified ingress-service health.'}
             </p>
 
-            <div className="space-y-2 text-xs">
+            {isDemoMode ? <div className="space-y-2 text-xs">
               <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-indigo-50/50 transition-colors">
                 <div className="flex items-center gap-2">
                   <PhoneCall className="w-3.5 h-3.5 text-indigo-600" />
@@ -186,17 +227,21 @@ export const DashboardPage: React.FC = () => {
                   -40% Velocity
                 </span>
               </div>
-            </div>
+            </div> : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                No live feed-health or model-runtime status is asserted by this screen.
+              </div>
+            )}
           </div>
 
           <div className="pt-3 mt-3 border-t border-slate-100">
-            <button
+            {isDemoMode && <button
               onClick={() => setShowCheckInSimulator(true)}
               className="w-full flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
               <span>Simulate Live Check-in Pulse</span>
-            </button>
+            </button>}
           </div>
         </div>
       </div>
@@ -206,10 +251,10 @@ export const DashboardPage: React.FC = () => {
       {/* ========================================================================= */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
         <KpiCard
-          title="Active Cases"
-          value="1,284"
-          trendText="+8.4% mo"
-          trendDirection="up"
+          title="Accessible Cases"
+          value={totalCases}
+          trendText="Server total"
+          trendDirection="neutral"
           trendPositiveIsGood={true}
           icon={FolderOpen}
           variant="indigo"
@@ -217,9 +262,9 @@ export const DashboardPage: React.FC = () => {
         />
         <KpiCard
           title="Cases Monitored"
-          value="1,067"
-          trendText="+6.1% mo"
-          trendDirection="up"
+          value={monitoredCases}
+          trendText="Loaded page"
+          trendDirection="neutral"
           trendPositiveIsGood={true}
           icon={Eye}
           variant="default"
@@ -227,9 +272,9 @@ export const DashboardPage: React.FC = () => {
         />
         <KpiCard
           title="High Risk"
-          value="42"
-          trendText="+3 this wk"
-          trendDirection="up"
+          value={highRiskCount}
+          trendText="Loaded page"
+          trendDirection="neutral"
           trendPositiveIsGood={false}
           icon={AlertTriangle}
           variant="warning"
@@ -240,19 +285,19 @@ export const DashboardPage: React.FC = () => {
         />
         <KpiCard
           title="Critical Alerts"
-          value="8"
-          trendText="+2 today"
-          trendDirection="up"
+          value={alerts.filter((item) => item.riskLevel === 'CRITICAL' && item.status === 'Unread').length}
+          trendText="Loaded page"
+          trendDirection="neutral"
           trendPositiveIsGood={false}
           icon={AlertOctagon}
           variant="danger"
           onClick={() => navigate('/alerts')}
         />
         <KpiCard
-          title="Interventions (Wk)"
-          value="126"
-          trendText="+14.2%"
-          trendDirection="up"
+          title="Accessible Interventions"
+          value={interventionCount}
+          trendText={`${completedInterventions} complete on loaded page`}
+          trendDirection="neutral"
           trendPositiveIsGood={true}
           icon={HeartHandshake}
           variant="success"
@@ -260,9 +305,9 @@ export const DashboardPage: React.FC = () => {
         />
         <KpiCard
           title="Follow-ups Due"
-          value="37"
-          trendText="-5 pending"
-          trendDirection="down"
+          value={followUpsDue}
+          trendText="Loaded page"
+          trendDirection="neutral"
           trendPositiveIsGood={true}
           icon={Clock}
           variant="warning"
@@ -336,7 +381,7 @@ export const DashboardPage: React.FC = () => {
           {/* Recharts Line Chart */}
           <div className="h-64 sm:h-72 w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={mockPopulationDistressTrend30D} margin={{ top: 10, right: 15, left: -20, bottom: 0 }}>
+              <LineChart data={populationTrend} margin={{ top: 10, right: 15, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#64748b' }} stroke="#cbd5e1" />
                 <YAxis tick={{ fontSize: 11, fill: '#64748b' }} stroke="#cbd5e1" domain={[0, 100]} />
@@ -385,9 +430,9 @@ export const DashboardPage: React.FC = () => {
           <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between text-[11px] text-slate-500 gap-2">
             <span className="flex items-center gap-1 font-medium">
               <BarChart3 className="w-3.5 h-3.5 text-indigo-600" />
-              Aggregated across 36 districts in Maharashtra
+              Derived from trajectory records attached to the loaded case page
             </span>
-            <span className="font-mono text-slate-400">Telemetry Sync: 3 mins ago</span>
+            <span className="font-mono text-slate-400">Refreshes from the configured API</span>
           </div>
         </div>
 
@@ -399,11 +444,11 @@ export const DashboardPage: React.FC = () => {
                 Risk Stratification
               </h3>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                1,284 Total
+                {loadedCaseCount.toLocaleString()} Loaded
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              Active distribution of victims by risk severity.
+              Distribution by risk severity on the currently loaded case page.
             </p>
           </div>
 
@@ -435,8 +480,8 @@ export const DashboardPage: React.FC = () => {
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-2xl font-extrabold text-slate-900 font-['Space_Grotesk']">1,284</span>
-              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Victims</span>
+              <span className="text-2xl font-extrabold text-slate-900 font-['Space_Grotesk']">{loadedCaseCount.toLocaleString()}</span>
+              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Loaded Cases</span>
             </div>
           </div>
 
@@ -446,30 +491,30 @@ export const DashboardPage: React.FC = () => {
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" /> Low Risk (0-30)
               </span>
-              <span className="font-bold">68% (873)</span>
+              <span className="font-bold">{percentage(riskCounts.LOW)}% ({riskCounts.LOW})</span>
             </div>
             <div className="flex items-center justify-between p-2 rounded-xl bg-amber-50 text-amber-950 border border-amber-100 font-semibold">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-amber-500" /> Moderate Risk (31-60)
               </span>
-              <span className="font-bold">21% (269)</span>
+              <span className="font-bold">{percentage(riskCounts.MODERATE)}% ({riskCounts.MODERATE})</span>
             </div>
             <div className="flex items-center justify-between p-2 rounded-xl bg-orange-50 text-orange-950 border border-orange-100 font-semibold">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-orange-500" /> High Risk (61-80)
               </span>
-              <span className="font-bold">8% (103)</span>
+              <span className="font-bold">{percentage(riskCounts.HIGH)}% ({riskCounts.HIGH})</span>
             </div>
             <div className="flex items-center justify-between p-2 rounded-xl bg-rose-50 text-rose-950 border border-rose-100 font-semibold">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" /> Critical Risk (81-100)
               </span>
-              <span className="font-bold">3% (39)</span>
+              <span className="font-bold">{percentage(riskCounts.CRITICAL)}% ({riskCounts.CRITICAL})</span>
             </div>
           </div>
 
           <p className="text-[10px] text-slate-400 text-center italic mt-2.5">
-            Illustrative demo data • MoSJE SIH PS-26094
+            {isDemoMode ? 'Explicit demo data' : 'Backend records'} • Compliance not asserted
           </p>
         </div>
       </div>
@@ -496,7 +541,7 @@ export const DashboardPage: React.FC = () => {
               onClick={() => navigate('/cases')}
               className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl border border-indigo-200 transition-colors"
             >
-              <span>View All 1,284 Cases</span>
+              <span>View All {totalCases.toLocaleString()} Cases</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>

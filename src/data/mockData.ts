@@ -1530,7 +1530,7 @@ export const mockAlerts: RiskAlert[] = [
     riskLevel: 'HIGH',
     reason: 'Witness economic coercion and hostile turning pressure (Distress 74/100).',
     detectedAt: '5 hours ago',
-    status: 'Action Taken',
+    status: 'Acknowledged',
     primaryFactor: 'Witness intimidation threat detected on IVRS callback.',
     recommendations: ['Witness protection cell activated', 'Counselling session scheduled'],
     distressScore: 74,
@@ -1860,4 +1860,3 @@ export const mockDistrictData = [
   { district: 'Solapur', activeCases: 110, highRiskCases: 3, avgDistressScore: 51, assignedCounsellors: 9, interventionRate: 93 },
   { district: 'Thane', activeCases: 165, highRiskCases: 2, avgDistressScore: 44, assignedCounsellors: 11, interventionRate: 96 },
 ];
-
