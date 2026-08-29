@@ -93,6 +93,31 @@ export interface RecordTotals {
   staff: number;
 }
 
+export type InitialCaseStage = Extract<CaseStage, 'Complaint' | 'Investigation'>;
+export type CaseSubjectRole = CaseItem['subjectRole'];
+export type CaseMonitoringStatus = CaseItem['monitoringStatus'];
+
+export interface CreateCasePayload {
+  id: string;
+  anonymous_id: string;
+  case_type: CaseType;
+  district_id: string;
+  subject_role: CaseSubjectRole;
+  current_stage: InitialCaseStage;
+  monitoring_status: CaseMonitoringStatus;
+  priority: PriorityLevel;
+  assigned_counsellor_id?: string;
+  fir_number?: string;
+  police_station?: string;
+  special_court?: string;
+}
+
+export interface CreateCaseDisplayContext {
+  districtName: string;
+  stateName: string;
+  assignedCounsellorName?: string;
+}
+
 interface AppContextType {
   userRole: UserRole;
   userName: string;
@@ -116,6 +141,7 @@ interface AppContextType {
   cases: CaseItem[];
   getCaseById: (id: string) => CaseItem | undefined;
   loadCaseById: (id: string) => Promise<CaseItem | undefined>;
+  createCase: (payload: CreateCasePayload, displayContext: CreateCaseDisplayContext) => Promise<CaseItem>;
   alerts: RiskAlert[];
   unreadAlertsCount: number;
   auditLogs: AuditLogEntry[];
@@ -336,8 +362,11 @@ const mapCase = (value: unknown, existing?: CaseItem): CaseItem => {
     trendDirection: enumValue(dto.trendDirection, ['increasing', 'stable', 'decreasing'] as const, existing?.trendDirection ?? 'stable'),
     lastInteractionTime: stringValue(dto.lastInteractionTime, existing?.lastInteractionTime ?? 'No check-ins recorded'),
     assignedCounsellor: stringValue(dto.assignedCounsellor, existing?.assignedCounsellor ?? 'Unassigned'),
+    assignedCounsellorId: stringValue(dto.assignedCounsellorId ?? dto.assigned_counsellor_id, existing?.assignedCounsellorId ?? '') || undefined,
     counsellorPhone: stringValue(dto.counsellorPhone, existing?.counsellorPhone ?? '') || undefined,
     firNumber: stringValue(dto.firNumber ?? dto.fir_number, existing?.firNumber ?? '') || undefined,
+    policeStation: stringValue(dto.policeStation ?? dto.police_station, existing?.policeStation ?? '') || undefined,
+    specialCourt: stringValue(dto.specialCourt ?? dto.special_court, existing?.specialCourt ?? '') || undefined,
     priority: enumValue(dto.priority, PRIORITIES, existing?.priority ?? 'P3'),
     monitoringStatus: enumValue(dto.monitoringStatus, ['Active', 'Elevated', 'Under Review', 'Dormant'] as const, existing?.monitoringStatus ?? 'Active'),
     textSentiment: enumValue(dto.textSentiment, ['Positive', 'Neutral', 'Negative', 'High Distress'] as const, existing?.textSentiment ?? 'Neutral'),
@@ -559,14 +588,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setStateMetrics([]);
         setNationalOverview(null);
         const demoCounsellors = [...new Set(mock.mockCases.map((item) => item.assignedCounsellor).filter((name) => name && name !== 'Unassigned'))];
-        const demoStaff = demoCounsellors.map((displayName, index) => ({
-          id: `demo-counsellor-${index + 1}`,
-          display_name: displayName,
-          role: 'COUNSELLOR',
-          district: null,
-          district_name: null,
-          designation: 'Demo counsellor',
-        }));
+        const demoStaff = demoCounsellors.map((displayName, index) => {
+          const assignedCase = mock.mockCases.find((item) => item.assignedCounsellor === displayName);
+          return {
+            id: `demo-counsellor-${index + 1}`,
+            display_name: displayName,
+            role: 'COUNSELLOR',
+            district: null,
+            district_name: assignedCase?.district ?? null,
+            designation: 'Demo counsellor',
+          };
+        });
         setStaffDirectory(demoStaff);
         setRecordTotals({
           cases: mock.mockCases.length,
@@ -805,6 +837,97 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const createCase = useCallback(async (
+    payload: CreateCasePayload,
+    displayContext: CreateCaseDisplayContext,
+  ): Promise<CaseItem> => {
+    const sessionEpoch = sessionEpochRef.current;
+    const role = currentUserRef.current?.role;
+    if (role !== 'DISTRICT_OFFICER' && role !== 'STATE_ADMIN' && role !== 'NATIONAL_ADMIN') {
+      throw new Error('Only authorized case-management roles can create a case.');
+    }
+
+    setMutationCount((count) => count + 1);
+    setError(null);
+    try {
+      let created: CaseItem;
+      if (runtimeConfig.useMockApi) {
+        const normalizedId = payload.id.trim().toLowerCase();
+        const normalizedAnonymousId = payload.anonymous_id.trim().toLowerCase();
+        if (casesRef.current.some((item) => item.id.trim().toLowerCase() === normalizedId)) {
+          throw new Error('A case with this ID already exists.');
+        }
+        if (casesRef.current.some((item) => item.victimAnonymousId.trim().toLowerCase() === normalizedAnonymousId)) {
+          throw new Error('This anonymous identifier is already in use.');
+        }
+
+        created = mapCase({
+          id: payload.id.trim(),
+          victimAnonymousId: payload.anonymous_id.trim(),
+          subjectRole: payload.subject_role,
+          caseType: payload.case_type,
+          district: displayContext.districtName,
+          state: displayContext.stateName,
+          currentStage: payload.current_stage,
+          priority: payload.priority,
+          monitoringStatus: payload.monitoring_status,
+          assignedCounsellorId: payload.assigned_counsellor_id,
+          assignedCounsellor: displayContext.assignedCounsellorName || 'Unassigned',
+          firNumber: payload.fir_number,
+          policeStation: payload.police_station,
+          specialCourt: payload.special_court,
+          distressScore: 35,
+          previousDistressScore: 35,
+          baselineScore: 35,
+          riskLevel: 'LOW',
+          trend: '→ 0 (7d)',
+          trendDirection: 'stable',
+          lastInteractionTime: 'No check-ins recorded',
+          textSentiment: 'Neutral',
+          distressLanguageStatus: 'Normal',
+          voiceStressStatus: 'Normal',
+          emotionSignal: 'Calm',
+          engagementRateChange: '0%',
+          missedFollowUps: 0,
+          responseFrequency: 'Active',
+          contributingFactors: [],
+          primaryContributingFactor: '',
+          aiExplanationSummary: '',
+          longitudinalTrajectory: [],
+          milestones: [],
+          interactions: [],
+          interventions: [],
+          alertTimeline: [],
+        });
+      } else {
+        created = mapCase(await api.post<UnknownRecord>('cases/', payload));
+      }
+
+      if (sessionEpoch !== sessionEpochRef.current) {
+        throw new Error('The authenticated session changed while the case was being created. Refresh the register to verify the result.');
+      }
+      if (!created.id) throw new Error('The server returned an invalid case record.');
+
+      dataRevisionRef.current += 1;
+      const nextCases = [created, ...casesRef.current.filter((item) => item.id !== created.id)];
+      casesRef.current = nextCases;
+      setCases(nextCases);
+      setRecordTotals((previous) => ({
+        ...previous,
+        cases: Math.max(previous.cases + 1, nextCases.length),
+      }));
+      return created;
+    } catch (createError) {
+      const message = toErrorMessage(createError);
+      if (sessionEpoch === sessionEpochRef.current) setError(message);
+      throw new Error(message);
+    } finally {
+      if (sessionEpoch === sessionEpochRef.current) {
+        setMutationCount((count) => Math.max(0, count - 1));
+      }
+    }
+  }, []);
+
   const runMutation = useCallback(async (operation: (sessionEpoch: number) => Promise<void>): Promise<boolean> => {
     const sessionEpoch = sessionEpochRef.current;
     setMutationCount((count) => count + 1);
@@ -1034,7 +1157,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isDemoMode: runtimeConfig.demoMode, usesMockApi: runtimeConfig.useMockApi,
     isDataLoading, isRefreshing, isMutating: mutationCount > 0, error,
     clearError: () => setError(null), refreshData: () => loadData(true),
-    cases, getCaseById, loadCaseById, alerts, unreadAlertsCount, auditLogs, districtMetrics, stateMetrics, nationalOverview, staffDirectory, recordTotals,
+    cases, getCaseById, loadCaseById, createCase, alerts, unreadAlertsCount, auditLogs, districtMetrics, stateMetrics, nationalOverview, staffDirectory, recordTotals,
     updateInterventionStatus, assignIntervention, addRecommendedIntervention, acknowledgeAlert, resolveAlert,
     addInteractionToCheckIn, assignCounsellorToCase, transitionCaseStage, triggerVictimSOS,
     filters, setFilters, resetFilters, filteredCases,
@@ -1043,7 +1166,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     openInterventionModal: (caseItem, intervention) => setActiveInterventionModalCase({ caseItem, intervention }),
     closeInterventionModal: () => setActiveInterventionModalCase(null),
     showCheckInSimulator, setShowCheckInSimulator, showDemoTour, setShowDemoTour, demoStepIndex, setDemoStepIndex,
-  }), [userRole, userName, userDistrict, currentUser, setUserRole, authStatus, login, demoLogin, logout, isDataLoading, isRefreshing, mutationCount, error, loadData, cases, getCaseById, loadCaseById, alerts, unreadAlertsCount, auditLogs, districtMetrics, stateMetrics, nationalOverview, staffDirectory, recordTotals, updateInterventionStatus, assignIntervention, addRecommendedIntervention, acknowledgeAlert, resolveAlert, addInteractionToCheckIn, assignCounsellorToCase, transitionCaseStage, triggerVictimSOS, filters, resetFilters, filteredCases, activeReasoningCase, activeInterventionModalCase, showCheckInSimulator, setShowCheckInSimulator, showDemoTour, setShowDemoTour, demoStepIndex, setDemoStepIndex]);
+  }), [userRole, userName, userDistrict, currentUser, setUserRole, authStatus, login, demoLogin, logout, isDataLoading, isRefreshing, mutationCount, error, loadData, cases, getCaseById, loadCaseById, createCase, alerts, unreadAlertsCount, auditLogs, districtMetrics, stateMetrics, nationalOverview, staffDirectory, recordTotals, updateInterventionStatus, assignIntervention, addRecommendedIntervention, acknowledgeAlert, resolveAlert, addInteractionToCheckIn, assignCounsellorToCase, transitionCaseStage, triggerVictimSOS, filters, resetFilters, filteredCases, activeReasoningCase, activeInterventionModalCase, showCheckInSimulator, setShowCheckInSimulator, showDemoTour, setShowDemoTour, demoStepIndex, setDemoStepIndex]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

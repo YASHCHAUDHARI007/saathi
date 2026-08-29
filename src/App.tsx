@@ -6,6 +6,7 @@ import type { UserRole } from './types';
 const LoginPage = lazy(() => import('./pages/LoginPage').then((module) => ({ default: module.LoginPage })));
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const CaseMonitoringPage = lazy(() => import('./pages/CaseMonitoringPage').then((module) => ({ default: module.CaseMonitoringPage })));
+const CreateCasePage = lazy(() => import('./pages/CreateCasePage').then((module) => ({ default: module.CreateCasePage })));
 const IndividualCaseProfilePage = lazy(() => import('./pages/IndividualCaseProfilePage').then((module) => ({ default: module.IndividualCaseProfilePage })));
 const DistressAnalyticsPage = lazy(() => import('./pages/DistressAnalyticsPage').then((module) => ({ default: module.DistressAnalyticsPage })));
 const RiskAlertsPage = lazy(() => import('./pages/RiskAlertsPage').then((module) => ({ default: module.RiskAlertsPage })));
@@ -38,6 +39,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AUTHORITY_ROLES: readonly UserRole[] = [
   'District Officer',
   'Counsellor',
+  'State Administrator',
+  'National Administrator',
+];
+const CASE_MANAGEMENT_ROLES: readonly UserRole[] = [
+  'District Officer',
   'State Administrator',
   'National Administrator',
 ];
@@ -74,6 +80,7 @@ export function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<RoleRoute allowed={AUTHORITY_ROLES}><DashboardPage /></RoleRoute>} />
             <Route path="cases" element={<RoleRoute allowed={AUTHORITY_ROLES}><CaseMonitoringPage /></RoleRoute>} />
+            <Route path="cases/new" element={<RoleRoute allowed={CASE_MANAGEMENT_ROLES}><CreateCasePage /></RoleRoute>} />
             <Route path="cases/:id" element={<RoleRoute allowed={AUTHORITY_ROLES}><IndividualCaseProfilePage /></RoleRoute>} />
             <Route path="analytics" element={<RoleRoute allowed={AUTHORITY_ROLES}><DistressAnalyticsPage /></RoleRoute>} />
             <Route path="alerts" element={<RoleRoute allowed={AUTHORITY_ROLES}><RiskAlertsPage /></RoleRoute>} />
